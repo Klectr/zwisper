@@ -9,6 +9,7 @@ use gpui::{
     WindowBackgroundAppearance, WindowBounds, WindowHandle, WindowKind, WindowOptions,
 };
 use std::time::Duration;
+use zwisper_core::domain::{PermissionKind, PermissionState};
 use zwisper_core::{Command, DictationPhase};
 
 pub struct Pill {
@@ -67,6 +68,46 @@ fn waveform(levels: &[f32], active: bool, cx: &App) -> gpui::Div {
         }))
 }
 
+/// Paste failed but the text is on the clipboard. Offer the fix when it's a
+/// permission (e.g. Accessibility revoked by a re-signed build).
+fn copied_notice(needs: Option<PermissionKind>, cx: &App) -> gpui::Div {
+    let t = Theme::get(cx);
+    let label = |k: PermissionKind| match k {
+        PermissionKind::Microphone => "Microphone",
+        PermissionKind::Accessibility => "Accessibility",
+        PermissionKind::SystemAudio => "System audio",
+    };
+    div()
+        .flex()
+        .items_center()
+        .gap(px(12.))
+        .px(px(12.))
+        .child(
+            div()
+                .flex()
+                .flex_col()
+                .child(div().text_size(px(13.5)).text_color(t.text).child("Copied to clipboard. Press ⌘V to paste."))
+                .when_some(needs, |d, k| {
+                    d.child(
+                        div()
+                            .text_size(px(12.))
+                            .text_color(t.text_3)
+                            .child(format!("Allow {} so Zwisper can paste for you.", label(k))),
+                    )
+                }),
+        )
+        .when_some(needs, |d, k| {
+            d.child(capsule("pill-allow", "Allow…", cx, move |_, _, cx| {
+                let p = state(cx).read(cx).platform.permissions();
+                if p.state(k) == PermissionState::NotDetermined {
+                    p.request(k);
+                } else {
+                    p.open_settings(k);
+                }
+            }))
+        })
+}
+
 impl Render for Pill {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = Theme::get(cx);
@@ -74,6 +115,8 @@ impl Render for Pill {
         let phase = s.dictation.clone();
         let shortcut = s.settings.dictate_shortcut.clone();
         let levels = s.levels.clone();
+        // Stop/Cancel and the red dot only mean something while recording.
+        let active = matches!(phase, DictationPhase::Listening | DictationPhase::Transcribing);
 
         let top = match &phase {
             DictationPhase::Listening => waveform(&levels, true, cx).into_any_element(),
@@ -93,6 +136,7 @@ impl Render for Pill {
                 .text_color(hsla(t.recording))
                 .child(msg.clone())
                 .into_any_element(),
+            DictationPhase::Copied { needs } => copied_notice(*needs, cx).into_any_element(),
             DictationPhase::Idle => waveform(&levels, false, cx).into_any_element(),
         };
 
@@ -122,12 +166,13 @@ impl Render for Pill {
                             .justify_between()
                             .text_size(px(13.))
                             .text_color(t.text_2)
-                            .child(div().flex().items_center().gap(px(8.)).child(rec_dot(cx)).child("Dictation"))
+                            .child(div().flex().items_center().gap(px(8.)).when(active, |d| d.child(rec_dot(cx))).child("Dictation"))
                             .child(
                                 div()
                                     .flex()
                                     .items_center()
                                     .gap(px(14.))
+                                    .when(!active, |d| d.invisible())
                                     .child(
                                         div()
                                             .id("stop")

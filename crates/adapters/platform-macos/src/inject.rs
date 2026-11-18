@@ -63,6 +63,20 @@ fn restore(pb: &NSPasteboard, snap: Snapshot) {
     }
 }
 
+/// Replace the clipboard with `text` (kept there, not restored). Needs no
+/// permission; the fallback when synthetic paste isn't allowed.
+pub(crate) fn copy_to_clipboard(text: &str) -> Result<()> {
+    let pb = NSPasteboard::generalPasteboard();
+    pb.clearContents();
+    // SAFETY: NSPasteboardTypeString is an immutable framework constant.
+    let string_type = unsafe { NSPasteboardTypeString };
+    if pb.setString_forType(&NSString::from_str(text), string_type) {
+        Ok(())
+    } else {
+        Err(Error::InvalidState("could not write to the pasteboard".into()))
+    }
+}
+
 /// Post a key down + up with the given flags.
 pub(crate) fn post_key(source: Option<&CGEventSource>, keycode: u16, flags: CGEventFlags) -> Result<()> {
     for down in [true, false] {
@@ -167,6 +181,10 @@ impl TextInjector for PasteInjector {
         *PENDING_RESTORE.lock().unwrap_or_else(|p| p.into_inner()) = Some(handle);
         Ok(())
     }
+
+    fn copy(&self, text: &str) -> Result<()> {
+        copy_to_clipboard(text)
+    }
 }
 
 /// Fallback: types the text with `CGEventKeyboardSetUnicodeString`, in chunks
@@ -218,5 +236,9 @@ impl TextInjector for TypingInjector {
         // VERIFY ON MAC: some apps (terminals, Electron) may treat '\n' in a
         // unicode-string event differently from Return.
         Ok(())
+    }
+
+    fn copy(&self, text: &str) -> Result<()> {
+        copy_to_clipboard(text)
     }
 }

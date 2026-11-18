@@ -82,6 +82,23 @@ fn dictation_silence_injects_nothing() {
 }
 
 #[test]
+fn dictation_copies_to_clipboard_when_paste_is_not_allowed() {
+    let mut world = FakeWorld::default();
+    world.injector.fail = true;
+    *world.audio.mic.lock() = tone(&[(0.0, 300), (0.1, 500), (0.0, 200), (0.3, 500), (0.0, 300)]);
+    let (core, rx) = start(&world);
+    core.send(Command::StartDictation);
+    wait_for(&rx, 5, |e| matches!(e, Event::Dictation(DictationPhase::Listening)));
+    core.send(Command::StopDictation);
+    wait_for(&rx, 5, |e| {
+        matches!(e, Event::Dictation(DictationPhase::Copied { needs: Some(PermissionKind::Accessibility) }))
+    });
+    assert!(world.injector.injected.lock().is_empty());
+    assert_eq!(world.injector.copied.lock().as_slice(), ["hello world"]);
+    assert_eq!(core.dictations(10)[0].text, "hello world");
+}
+
+#[test]
 fn dictation_reports_missing_mic_permission() {
     let mut world = FakeWorld::default();
     world.audio.fail_mic = true;

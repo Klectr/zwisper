@@ -47,6 +47,9 @@ pub fn start_meeting(cx: &mut App) {
 
 pub fn toggle_dictation(cx: &mut App) {
     let st = state(cx);
-    let idle = matches!(st.read(cx).dictation, zwisper_core::DictationPhase::Idle | zwisper_core::DictationPhase::Error(_));
+    let idle = matches!(st.read(cx).dictation, zwisper_core::DictationPhase::Idle
+            | zwisper_core::DictationPhase::Error(_)
+            | zwisper_core::DictationPhase::Copied { .. }
+    );
     st.read(cx).send(if idle { zwisper_core::Command::StartDictation } else { zwisper_core::Command::StopDictation });
 }

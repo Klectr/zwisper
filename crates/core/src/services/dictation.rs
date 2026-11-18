@@ -133,9 +133,13 @@ impl DictationService {
             let result = transcribe_and_inject(&ctx, &rec.buf, started.elapsed());
             *state.lock() = State::Idle;
             match result {
-                Ok(Some(text)) => {
+                Ok(Some(Delivered::Pasted(text))) => {
                     ctx.events.publish(Event::Dictated(text));
                     ctx.events.publish(Event::Dictation(DictationPhase::Idle));
+                }
+                Ok(Some(Delivered::Copied { text, needs })) => {
+                    ctx.events.publish(Event::Dictated(text));
+                    ctx.events.publish(Event::Dictation(DictationPhase::Copied { needs }));
                 }
                 Ok(None) => ctx.events.publish(Event::Dictation(DictationPhase::Idle)),
                 Err(e) => ctx.events.publish(Event::Dictation(DictationPhase::Error(e.to_string()))),
@@ -149,7 +153,12 @@ impl DictationService {
     }
 }
 
-fn transcribe_and_inject(ctx: &SharedCtx, audio: &[f32], elapsed: Duration) -> Result<Option<String>> {
+enum Delivered {
+    Pasted(String),
+    Copied { text: String, needs: Option<PermissionKind> },
+}
+
+fn transcribe_and_inject(ctx: &SharedCtx, audio: &[f32], elapsed: Duration) -> Result<Option<Delivered>> {
     let (speech, _) = dsp::trim_silence(audio, SILENCE_RMS);
     if samples_to_ms(speech.len()) < MIN_SPEECH_MS {
         return Ok(None);
@@ -163,14 +172,30 @@ fn transcribe_and_inject(ctx: &SharedCtx, audio: &[f32], elapsed: Duration) -> R
     if text.is_empty() {
         return Ok(None);
     }
-    ctx.ports.injector.inject(&text)?;
+    // Save first: if delivery fails the words are still in History.
     if ctx.ports.settings.load().keep_dictation_history {
         let d = Dictation { at: ctx.ports.clock.now(), text: text.clone(), duration_ms: elapsed.as_millis() as u64 };
         if let Err(e) = ctx.ports.repo.append_dictation(&d) {
             tracing::warn!(error = %e, "could not save dictation history");
         }
     }
-    Ok(Some(text))
+    match ctx.ports.injector.inject(&text) {
+        Ok(()) => Ok(Some(Delivered::Pasted(text))),
+        Err(e) => {
+            tracing::warn!(error = %e, "paste failed; copying to the clipboard instead");
+            let needs = match e {
+                Error::Permission(kind) => Some(kind),
+                _ => None,
+            };
+            match ctx.ports.injector.copy(&text) {
+                Ok(()) => Ok(Some(Delivered::Copied { text, needs })),
+                Err(copy_err) => {
+                    tracing::warn!(error = %copy_err, "clipboard fallback failed too");
+                    Err(e)
+                }
+            }
+        }
+    }
 }
 
 /// Join segment texts, dropping non-speech markers.

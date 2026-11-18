@@ -177,6 +177,11 @@ impl AppState {
                         self.open_pill(cx);
                         self.pill_hide_at = Some(Instant::now() + Duration::from_secs(3));
                     }
+                    // Longer: the user has to read it and may click "Allow…".
+                    DictationPhase::Copied { .. } => {
+                        self.open_pill(cx);
+                        self.pill_hide_at = Some(Instant::now() + Duration::from_secs(8));
+                    }
                 }
                 self.dictation = phase;
             }

@@ -332,6 +332,7 @@ impl NoteWriter for CannedNoteWriter {
 #[derive(Default, Clone)]
 pub struct RecordingInjector {
     pub injected: Arc<Mutex<Vec<String>>>,
+    pub copied: Arc<Mutex<Vec<String>>>,
     pub fail: bool,
 }
 
@@ -344,6 +345,10 @@ impl TextInjector for RecordingInjector {
             return Err(Error::Permission(PermissionKind::Accessibility));
         }
         self.injected.lock().push(text.to_string());
+        Ok(())
+    }
+    fn copy(&self, text: &str) -> Result<()> {
+        self.copied.lock().push(text.to_string());
         Ok(())
     }
 }

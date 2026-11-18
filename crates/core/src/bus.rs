@@ -45,6 +45,9 @@ pub enum DictationPhase {
     Idle,
     Listening,
     Transcribing,
+    /// Pasting failed, so the text was put on the clipboard instead.
+    /// `needs` is the permission that would let it paste automatically.
+    Copied { needs: Option<PermissionKind> },
     Error(String),
 }
 

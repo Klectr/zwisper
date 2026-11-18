@@ -160,6 +160,11 @@ pub trait EchoFilter: Send + Sync {
 pub trait TextInjector: Send + Sync {
     fn id(&self) -> EngineId;
     fn inject(&self, text: &str) -> Result<()>;
+    /// Put `text` on the clipboard without pasting. The fallback when `inject`
+    /// fails (e.g. Accessibility was revoked), so a dictation is never lost.
+    fn copy(&self, _text: &str) -> Result<()> {
+        Err(crate::Error::InvalidState("this injector can't use the clipboard".into()))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

@@ -153,4 +153,7 @@ impl<A: TextInjector, B: TextInjector> TextInjector for Fallback<A, B> {
             }
         }
     }
+    fn copy(&self, text: &str) -> Result<()> {
+        self.primary.copy(text).or_else(|_| self.secondary.copy(text))
+    }
 }
