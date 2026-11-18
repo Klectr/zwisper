@@ -17,14 +17,12 @@ Press a key, speak, and your words appear wherever you're typing. Record a meeti
 
 ### Dictate anywhere
 
-<img alt="The dictation pill: a waveform above Stop and Cancel hints" src="docs/screenshots/pill.png" width="452" align="right">
+<p align="center"><img alt="The dictation pill: a waveform above Stop and Cancel hints" src="docs/screenshots/pill.png" width="452"></p>
 
 - Press <kbd>⌥</kbd> <kbd>Space</kbd>, speak, press it again. The text is pasted into whatever app you're typing in. Hold the key instead for push-to-talk.
 - <kbd>Esc</kbd> cancels. It's only claimed while you're dictating, so other apps keep their Esc.
 - **Other audio is muffled while you talk**, like a neighbour's TV through the wall: you can tell something's playing, but can't follow the words. You can switch it to plain volume lowering, or turn it off.
 - If macOS won't let Zwisper paste, the text goes to the clipboard and into your history instead, so nothing you said is lost.
-
-<br clear="right">
 
 ### Meetings
 
