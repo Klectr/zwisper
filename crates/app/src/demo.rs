@@ -23,6 +23,7 @@ pub fn ports(root: &std::path::Path) -> Ports {
         audio: Arc::new(audio),
         recorder: store.clone(),
         injector: Arc::new(RecordingInjector::default()),
+        ducker: Arc::new(zwisper_core::ports::NoDucking),
         repo: store,
         settings,
         models: Arc::new(FakeModels::default()),

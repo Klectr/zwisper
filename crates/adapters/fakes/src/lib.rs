@@ -353,6 +353,20 @@ impl TextInjector for RecordingInjector {
     }
 }
 
+/// Records duck/restore calls as "duck:Muffle", "restore", ….
+#[derive(Default, Clone)]
+pub struct RecordingDucker {
+    pub calls: Arc<Mutex<Vec<String>>>,
+}
+impl AudioDucker for RecordingDucker {
+    fn duck(&self, how: Ducking) {
+        self.calls.lock().push(format!("duck:{how:?}"));
+    }
+    fn restore(&self) {
+        self.calls.lock().push("restore".into());
+    }
+}
+
 pub struct AllGranted;
 impl Permissions for AllGranted {
     fn state(&self, _: PermissionKind) -> PermissionState {
@@ -549,6 +563,7 @@ pub struct FakeWorld {
     pub audio: FakeAudio,
     pub recorder: Arc<MemRecorder>,
     pub injector: RecordingInjector,
+    pub ducker: RecordingDucker,
     pub repo: Arc<InMemoryRepo>,
     pub settings: Arc<MemSettings>,
     pub models: Arc<FakeModels>,
@@ -561,6 +576,7 @@ impl Default for FakeWorld {
             audio: FakeAudio::default(),
             recorder: Arc::default(),
             injector: RecordingInjector::default(),
+            ducker: RecordingDucker::default(),
             repo: Arc::default(),
             settings: Arc::default(),
             models: Arc::default(),
@@ -575,6 +591,7 @@ impl FakeWorld {
             audio: Arc::new(self.audio.clone()),
             recorder: self.recorder.clone(),
             injector: Arc::new(self.injector.clone()),
+            ducker: Arc::new(self.ducker.clone()),
             repo: self.repo.clone(),
             settings: self.settings.clone(),
             models: self.models.clone(),

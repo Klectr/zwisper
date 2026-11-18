@@ -16,6 +16,8 @@ pub struct Ports {
     pub audio: Arc<dyn AudioSourceFactory>,
     pub recorder: Arc<dyn AudioRecorder>,
     pub injector: Arc<dyn TextInjector>,
+    /// Quiets other apps while dictating.
+    pub ducker: Arc<dyn AudioDucker>,
     pub repo: Arc<dyn SessionRepository>,
     pub settings: Arc<dyn SettingsStore>,
     pub models: Arc<dyn ModelStore>,

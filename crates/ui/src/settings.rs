@@ -193,6 +193,25 @@ impl Render for SettingsView {
                     cx,
                 )
                 .into_any_element(),
+                row(
+                    "Other audio while dictating",
+                    segmented(
+                        "ducking",
+                        &["Muffle", "Lower", "Leave"],
+                        match settings.dictation_ducking {
+                            Ducking::Muffle => 0,
+                            Ducking::Lower => 1,
+                            Ducking::Off => 2,
+                        },
+                        cx,
+                        |i, _, cx| {
+                            let how = [Ducking::Muffle, Ducking::Lower, Ducking::Off][i];
+                            state(cx).update(cx, |s, _| s.update_settings(|x| x.dictation_ducking = how));
+                        },
+                    ),
+                    cx,
+                )
+                .into_any_element(),
             ],
             cx,
         );

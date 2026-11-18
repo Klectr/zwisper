@@ -30,9 +30,11 @@ impl Core {
         let engines = Engines::build(ports.engines.clone(), tier)?;
         let ctx: SharedCtx = Arc::new(Ctx { ports, engines, events: EventBus::new() });
         let (tx, rx) = unbounded();
+        let meeting = Arc::new(MeetingService::new(ctx.clone()));
+        let m = meeting.clone();
         let core = Core {
-            meeting: Arc::new(MeetingService::new(ctx.clone())),
-            dictation: Arc::new(DictationService::new(ctx.clone())),
+            dictation: Arc::new(DictationService::new(ctx.clone(), Box::new(move || m.active_id().is_some()))),
+            meeting,
             ctx,
             tx,
         };

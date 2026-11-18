@@ -5,6 +5,7 @@ use crate::engines::RealEngines;
 use gpui::App;
 use std::path::Path;
 use std::sync::Arc;
+use zwisper_core::domain::{PermissionKind, PermissionState};
 use zwisper_core::ports::*;
 use zwisper_core::{Command, Core, Ports};
 use zwisper_platform_macos as platform;
@@ -62,6 +63,10 @@ pub fn compose(cx: &mut App, data: &Path) -> (Core, Arc<dyn zwisper_ui::UiPlatfo
             primary: platform::PasteInjector::new(),
             secondary: platform::TypingInjector::new(),
         }),
+        ducker: Arc::new(zwisper_audio_macos::MacDucker::new(
+            data.join("ducking.state"),
+            Box::new(|| platform::MacPermissions::new().state(PermissionKind::SystemAudio) == PermissionState::Granted),
+        )),
         repo: store,
         settings,
         models: models.clone(),

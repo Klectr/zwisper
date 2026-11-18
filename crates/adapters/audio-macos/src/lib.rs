@@ -4,17 +4,29 @@
 //!   - `microphone()` → `CpalMic` (cpal / CoreAudio input stream)
 //!   - `system_output()` → `CoreAudioTap` (Core Audio process tap, macOS 14.2+)
 //!
+//! * [`MacDucker`] implements `AudioDucker`: muffles other apps while
+//!   dictating (process tap + low-pass, see [`muffle`]) or lowers the volume.
+//!
 //! All frames are delivered as 16 kHz mono f32. On non-macOS targets the crate
 //! compiles to a stub factory (no microphones, no system audio) so the
 //! workspace builds on Linux CI; only [`convert`] has real logic there.
 
 pub mod convert;
+pub mod muffle;
 
+#[cfg(target_os = "macos")]
+mod duck;
 #[cfg(target_os = "macos")]
 mod mic;
 #[cfg(target_os = "macos")]
+mod muffle_tap;
+#[cfg(target_os = "macos")]
 mod tap;
+#[cfg(target_os = "macos")]
+mod volume;
 
+#[cfg(target_os = "macos")]
+pub use duck::MacDucker;
 #[cfg(target_os = "macos")]
 pub use mic::CpalMic;
 #[cfg(target_os = "macos")]

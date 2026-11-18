@@ -52,7 +52,7 @@ pub(crate) enum TapError {
     Unavailable(String),
 }
 
-fn fourcc(s: OSStatus) -> String {
+pub(crate) fn fourcc(s: OSStatus) -> String {
     let b = s.to_be_bytes();
     if b.iter().all(|c| c.is_ascii_graphic()) {
         format!("'{}' ({s})", String::from_utf8_lossy(&b))
@@ -61,7 +61,7 @@ fn fourcc(s: OSStatus) -> String {
     }
 }
 
-fn check(status: OSStatus, what: &str) -> std::result::Result<(), TapError> {
+pub(crate) fn check(status: OSStatus, what: &str) -> std::result::Result<(), TapError> {
     if status == 0 {
         Ok(())
     } else if status == kAudioDevicePermissionsError {
@@ -94,7 +94,7 @@ fn global_addr(selector: u32) -> AudioObjectPropertyAddress {
 ///
 /// # Safety
 /// `T` must be the exact type CoreAudio stores for `selector` on `object`.
-unsafe fn get_prop<T: Copy>(
+pub(crate) unsafe fn get_prop<T: Copy>(
     object: AudioObjectID,
     selector: u32,
     qualifier: Option<&[u8]>,
@@ -123,7 +123,7 @@ unsafe fn get_prop<T: Copy>(
 }
 
 /// Our own process as a Core Audio process object (to exclude from the tap).
-fn own_process_object() -> Option<AudioObjectID> {
+pub(crate) fn own_process_object() -> Option<AudioObjectID> {
     let pid: i32 = NSProcessInfo::processInfo().processIdentifier();
     // SAFETY: TranslatePIDToProcessObject takes a pid_t qualifier and returns an AudioObjectID.
     let obj = unsafe {
@@ -160,18 +160,18 @@ fn default_output_uid() -> Option<Retained<NSString>> {
     }
 }
 
-fn key(k: &CStr) -> Retained<NSString> {
+pub(crate) fn key(k: &CStr) -> Retained<NSString> {
     NSString::from_str(k.to_str().expect("CoreAudio keys are ASCII"))
 }
 
 /// Upcast a Foundation object to `NSObject` for use as a dictionary value.
-fn obj<T: objc2::Message>(r: Retained<T>) -> Retained<NSObject> {
+pub(crate) fn obj<T: objc2::Message>(r: Retained<T>) -> Retained<NSObject> {
     // SAFETY: only called with Foundation classes (NSString/NSNumber/NSArray/
     // NSDictionary), all of which inherit from NSObject.
     unsafe { Retained::cast_unchecked(r) }
 }
 
-fn dict(entries: Vec<(&CStr, Retained<NSObject>)>) -> Retained<NSDictionary<NSString, NSObject>> {
+pub(crate) fn dict(entries: Vec<(&CStr, Retained<NSObject>)>) -> Retained<NSDictionary<NSString, NSObject>> {
     let keys: Vec<Retained<NSString>> = entries.iter().map(|(k, _)| key(k)).collect();
     let key_refs: Vec<&NSString> = keys.iter().map(|k| &**k).collect();
     let values: Vec<Retained<NSObject>> = entries.into_iter().map(|(_, v)| v).collect();

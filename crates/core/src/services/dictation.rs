@@ -8,6 +8,7 @@ use crate::dsp;
 use crate::error::{Error, Result};
 use crate::ports::KeyState;
 use parking_lot::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -42,11 +43,27 @@ enum State {
 pub struct DictationService {
     ctx: SharedCtx,
     state: Arc<Mutex<State>>,
+    /// True while a meeting records; ducking then would quiet the call.
+    meeting_active: Box<dyn Fn() -> bool + Send + Sync>,
+    /// Whether we asked the ducker to quiet other apps (so we restore once).
+    ducked: AtomicBool,
 }
 
 impl DictationService {
-    pub fn new(ctx: SharedCtx) -> Self {
-        DictationService { ctx, state: Arc::new(Mutex::new(State::Idle)) }
+    pub fn new(ctx: SharedCtx, meeting_active: Box<dyn Fn() -> bool + Send + Sync>) -> Self {
+        DictationService { ctx, state: Arc::new(Mutex::new(State::Idle)), meeting_active, ducked: AtomicBool::new(false) }
+    }
+
+    fn duck(&self, how: Ducking) {
+        if how != Ducking::Off && !(self.meeting_active)() && !self.ducked.swap(true, Ordering::SeqCst) {
+            self.ctx.ports.ducker.duck(how);
+        }
+    }
+
+    fn restore_audio(&self) {
+        if self.ducked.swap(false, Ordering::SeqCst) {
+            self.ctx.ports.ducker.restore();
+        }
     }
 
     pub fn is_idle(&self) -> bool {
@@ -92,6 +109,7 @@ impl DictationService {
             Ok(capture) => {
                 *st = State::Listening { capture, pressed_at: Instant::now(), started: Instant::now() };
                 self.ctx.events.publish(Event::Dictation(DictationPhase::Listening));
+                self.duck(settings.dictation_ducking);
                 // Warm the model while the user speaks.
                 let ctx = self.ctx.clone();
                 std::thread::spawn(move || {
@@ -110,6 +128,7 @@ impl DictationService {
             if let State::Listening { capture, .. } = std::mem::replace(&mut *st, State::Idle) {
                 capture.stop();
             }
+            self.restore_audio();
             self.ctx.events.publish(Event::Dictation(DictationPhase::Idle));
         }
     }
@@ -125,6 +144,8 @@ impl DictationService {
                 }
             }
         };
+        // Sound comes back as soon as you stop talking, not after transcription.
+        self.restore_audio();
         self.ctx.events.publish(Event::Dictation(DictationPhase::Transcribing));
         let ctx = self.ctx.clone();
         let state = self.state.clone();

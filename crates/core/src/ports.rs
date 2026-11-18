@@ -167,6 +167,23 @@ pub trait TextInjector: Send + Sync {
     }
 }
 
+/// Quiets other apps' audio while dictating.
+///
+/// Best effort and non-blocking: calls return immediately, failures are
+/// logged by the adapter and never interrupt dictation. `restore` after
+/// `duck` must always bring the sound back, and is a no-op otherwise.
+pub trait AudioDucker: Send + Sync {
+    fn duck(&self, how: Ducking);
+    fn restore(&self);
+}
+
+/// For platforms (and demos) without ducking.
+pub struct NoDucking;
+impl AudioDucker for NoDucking {
+    fn duck(&self, _how: Ducking) {}
+    fn restore(&self) {}
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum HotkeyAction {
     Dictate,

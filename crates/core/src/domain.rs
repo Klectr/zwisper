@@ -383,6 +383,19 @@ pub enum PermissionState {
     NotDetermined,
 }
 
+/// What happens to other apps' sound while you dictate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Ducking {
+    /// Leave it alone.
+    Off,
+    /// Turn the output volume down.
+    Lower,
+    /// Quieter and low-passed ("from the next room"): audible, not intelligible.
+    #[default]
+    Muffle,
+}
+
 /// User preferences. Stored as `config.toml` by an adapter; no secrets exist.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -394,6 +407,8 @@ pub struct Settings {
     pub record_system_audio: bool,
     pub tier: Option<Tier>,
     pub keep_dictation_history: bool,
+    /// Quiet other apps while dictating (skipped during meetings).
+    pub dictation_ducking: Ducking,
     pub launch_at_login: bool,
     pub library_dir: Option<std::path::PathBuf>,
     pub onboarded: bool,
@@ -408,6 +423,7 @@ impl Default for Settings {
             record_system_audio: true,
             tier: None,
             keep_dictation_history: true,
+            dictation_ducking: Ducking::default(),
             launch_at_login: false,
             library_dir: None,
             onboarded: false,

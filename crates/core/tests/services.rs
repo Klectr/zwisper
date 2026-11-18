@@ -3,7 +3,7 @@
 use crossbeam_channel::Receiver;
 use std::time::{Duration, Instant};
 use zwisper_core::domain::*;
-use zwisper_core::ports::KeyState;
+use zwisper_core::ports::{KeyState, SettingsStore};
 use zwisper_core::{Command, Core, DictationPhase, Event};
 use zwisper_fakes::*;
 
@@ -96,6 +96,60 @@ fn dictation_copies_to_clipboard_when_paste_is_not_allowed() {
     assert!(world.injector.injected.lock().is_empty());
     assert_eq!(world.injector.copied.lock().as_slice(), ["hello world"]);
     assert_eq!(core.dictations(10)[0].text, "hello world");
+}
+
+#[test]
+fn dictation_muffles_other_audio_until_you_stop() {
+    let world = FakeWorld::default();
+    *world.audio.mic.lock() = tone(&[(0.1, 600)]);
+    let (core, rx) = start(&world);
+    core.send(Command::StartDictation);
+    wait_for(&rx, 5, |e| matches!(e, Event::Dictation(DictationPhase::Listening)));
+    std::thread::sleep(Duration::from_millis(50));
+    assert_eq!(world.ducker.calls.lock().as_slice(), ["duck:Muffle"]);
+    core.send(Command::StopDictation);
+    wait_for(&rx, 5, |e| matches!(e, Event::Dictation(DictationPhase::Transcribing)));
+    assert_eq!(world.ducker.calls.lock().as_slice(), ["duck:Muffle", "restore"]);
+}
+
+#[test]
+fn dictation_restores_audio_on_cancel() {
+    let world = FakeWorld::default();
+    *world.audio.mic.lock() = tone(&[(0.1, 600)]);
+    let (core, rx) = start(&world);
+    core.send(Command::StartDictation);
+    wait_for(&rx, 5, |e| matches!(e, Event::Dictation(DictationPhase::Listening)));
+    core.send(Command::CancelDictation);
+    wait_for(&rx, 5, |e| matches!(e, Event::Dictation(DictationPhase::Idle)));
+    assert_eq!(world.ducker.calls.lock().as_slice(), ["duck:Muffle", "restore"]);
+}
+
+#[test]
+fn dictation_leaves_audio_alone_when_ducking_is_off() {
+    let world = FakeWorld::default();
+    let mut s = world.settings.load();
+    s.dictation_ducking = Ducking::Off;
+    world.settings.save(&s).unwrap();
+    *world.audio.mic.lock() = tone(&[(0.1, 600)]);
+    let (core, rx) = start(&world);
+    core.send(Command::StartDictation);
+    wait_for(&rx, 5, |e| matches!(e, Event::Dictation(DictationPhase::Listening)));
+    core.send(Command::StopDictation);
+    wait_for(&rx, 5, |e| matches!(e, Event::Dictation(DictationPhase::Transcribing)));
+    assert!(world.ducker.calls.lock().is_empty());
+}
+
+#[test]
+fn dictation_does_not_duck_during_a_meeting() {
+    let world = remote_meeting_world();
+    let (core, rx) = start(&world);
+    core.send(Command::StartMeeting { title: None });
+    wait_for(&rx, 5, |e| matches!(e, Event::MeetingStarted(_)));
+    core.send(Command::StartDictation);
+    wait_for(&rx, 5, |e| matches!(e, Event::Dictation(DictationPhase::Listening)));
+    core.send(Command::CancelDictation);
+    wait_for(&rx, 5, |e| matches!(e, Event::Dictation(DictationPhase::Idle)));
+    assert!(world.ducker.calls.lock().is_empty());
 }
 
 #[test]
