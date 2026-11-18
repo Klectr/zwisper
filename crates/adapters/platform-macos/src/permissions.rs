@@ -1,5 +1,5 @@
 //! `Permissions` for macOS: Microphone (AVFoundation), Accessibility (AX) and
-//! System Audio Recording (no public status API).
+//! System Audio Recording (private TCC SPI, see `tcc`).
 
 use block2::RcBlock;
 use objc2::rc::Retained;
@@ -21,6 +21,90 @@ static SYSTEM_AUDIO_GRANTED: AtomicBool = AtomicBool::new(false);
 /// for it until the app calls this.
 pub fn mark_system_audio_granted() {
     SYSTEM_AUDIO_GRANTED.store(true, Ordering::Relaxed);
+}
+
+/// System Audio Recording via the private TCC framework — the only way to
+/// prompt for, or read, `kTCCServiceAudioCapture` before a tap runs. Fine for a
+/// Developer ID build (not App Store). Loaded with `dlopen` so a future macOS
+/// that drops the symbols degrades to "open System Settings" instead of crashing.
+mod tcc {
+    use block2::RcBlock;
+    use objc2_core_foundation::{CFDictionary, CFString};
+    use std::ffi::{c_int, c_void, CStr};
+    use std::sync::OnceLock;
+
+    type PreflightFn = unsafe extern "C" fn(service: *const CFString, options: *const CFDictionary) -> c_int;
+    type RequestFn = unsafe extern "C" fn(
+        service: *const CFString,
+        options: *const CFDictionary,
+        callback: *const block2::Block<dyn Fn(u8)>,
+    );
+
+    struct Api {
+        preflight: PreflightFn,
+        request: RequestFn,
+    }
+
+    const SERVICE: &str = "kTCCServiceAudioCapture";
+
+    fn api() -> Option<&'static Api> {
+        static API: OnceLock<Option<Api>> = OnceLock::new();
+        API.get_or_init(|| {
+            let path = c"/System/Library/PrivateFrameworks/TCC.framework/Versions/A/TCC";
+            // SAFETY: dlopen/dlsym with valid NUL-terminated strings; the handle is
+            // intentionally never closed so the function pointers stay valid.
+            unsafe {
+                let h = libc::dlopen(path.as_ptr(), libc::RTLD_NOW);
+                if h.is_null() {
+                    tracing::warn!("TCC.framework unavailable");
+                    return None;
+                }
+                let sym = |name: &CStr| -> *mut c_void { libc::dlsym(h, name.as_ptr()) };
+                let (p, r) = (sym(c"TCCAccessPreflight"), sym(c"TCCAccessRequest"));
+                if p.is_null() || r.is_null() {
+                    tracing::warn!("TCC preflight/request symbols missing");
+                    return None;
+                }
+                Some(Api {
+                    preflight: std::mem::transmute::<*mut c_void, PreflightFn>(p),
+                    request: std::mem::transmute::<*mut c_void, RequestFn>(r),
+                })
+            }
+        })
+        .as_ref()
+    }
+
+    /// `Some(true)` granted, `Some(false)` denied, `None` not asked / unknown.
+    pub fn preflight() -> Option<bool> {
+        let api = api()?;
+        let service = CFString::from_str(SERVICE);
+        // SAFETY: valid CFString, null options.
+        match unsafe { (api.preflight)(&*service, std::ptr::null()) } {
+            0 => Some(true),
+            1 => Some(false),
+            _ => None,
+        }
+    }
+
+    /// Shows the system prompt. Returns false if the SPI is unavailable.
+    pub fn request(on_answer: impl Fn(bool) + 'static) -> bool {
+        let Some(api) = api() else { return false };
+        let service = CFString::from_str(SERVICE);
+        let block = RcBlock::new(move |granted: u8| on_answer(granted != 0));
+        // SAFETY: valid CFString, null options; TCC copies the block.
+        unsafe { (api.request)(&*service, std::ptr::null(), &*block) };
+        true
+    }
+
+    #[cfg(test)]
+    mod tests {
+        #[test]
+        fn tcc_spi_resolves_on_this_macos() {
+            assert!(super::api().is_some(), "TCCAccessPreflight/Request not found");
+            // Any answer is fine; this just must not crash.
+            let _ = super::preflight();
+        }
+    }
 }
 
 /// `AXIsProcessTrusted()`: may this process post synthetic input events?
@@ -76,13 +160,12 @@ impl Permissions for MacPermissions {
                     PermissionState::NotDetermined
                 }
             }
-            PermissionKind::SystemAudio => {
-                if SYSTEM_AUDIO_GRANTED.load(Ordering::Relaxed) {
-                    PermissionState::Granted
-                } else {
-                    PermissionState::NotDetermined
-                }
-            }
+            PermissionKind::SystemAudio => match tcc::preflight() {
+                Some(true) => PermissionState::Granted,
+                Some(false) => PermissionState::Denied,
+                None if SYSTEM_AUDIO_GRANTED.load(Ordering::Relaxed) => PermissionState::Granted,
+                None => PermissionState::NotDetermined,
+            },
         }
     }
 
@@ -106,9 +189,19 @@ impl Permissions for MacPermissions {
                 // Shows the "would like to control this computer" alert if untrusted.
                 let _ = unsafe { AXIsProcessTrustedWithOptions(Some(cf)) };
             }
-            // There is no API to prompt for System Audio Recording; the prompt
-            // appears the first time a process tap starts delivering audio.
-            PermissionKind::SystemAudio => {}
+            // No public API prompts for System Audio Recording; use the TCC SPI,
+            // and if that's gone, send the user to the Settings pane instead.
+            PermissionKind::SystemAudio => {
+                let asked = tcc::request(|granted| {
+                    tracing::info!(granted, "system audio permission answered");
+                    if granted {
+                        mark_system_audio_granted();
+                    }
+                });
+                if !asked {
+                    self.open_settings(kind);
+                }
+            }
         }
     }
 
