@@ -25,7 +25,7 @@ jobs:
 
   macos:
     name: macOS app (Apple Silicon)
-    runs-on: macos-14
+    runs-on: macos-15   # Apple Silicon; macos-14 images were retired
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
