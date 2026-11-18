@@ -1,13 +1,13 @@
 //! Hear the dictation muffle without installing the app.
 //!
-//!   cargo run -p zwisper-audio-macos --example muffle_preview -- in.wav out.wav
+//!   cargo run -p zwisper-audio-macos --example muffle_preview -- in.wav out.wav [ON_SECS [OFF_SECS]]
 //!
 //! `in.wav` must be 32-bit float PCM, mono or stereo, e.g. made with:
 //!   say -o speech.aiff "Some sentence"
 //!   afconvert -f WAVE -d LEF32@48000 speech.aiff in.wav
 //!
-//! The output starts open, muffles after 1 s, and opens again 1 s before the
-//! end, so you hear the glide both ways.
+//! The output starts open, muffles at ON_SECS (default 1) and opens again at
+//! OFF_SECS (default: 1 s before the end), so you hear the glide both ways.
 
 use zwisper_audio_macos::muffle::Muffler;
 
@@ -59,12 +59,13 @@ fn write_f32_wav(path: &str, rate: u32, l: &[f32], r: &[f32]) {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let (input, output) = match args.as_slice() {
-        [_, i, o] => (i, o),
+        [_, i, o, ..] if args.len() <= 5 => (i, o),
         _ => {
-            eprintln!("usage: muffle_preview in.wav out.wav");
+            eprintln!("usage: muffle_preview in.wav out.wav [ON_SECS [OFF_SECS]]");
             std::process::exit(2);
         }
     };
+    let secs = |i: usize| args.get(i).map(|s| s.parse::<f32>().expect("seconds must be a number"));
     let (rate, channels, samples) = read_f32_wav(&std::fs::read(input).expect("read input"));
     let ch = channels.max(1) as usize;
     let mut l: Vec<f32> = samples.chunks(ch).map(|f| f[0]).collect();
@@ -72,7 +73,9 @@ fn main() {
 
     let mut m = Muffler::new(rate as f32);
     let block = 512;
-    let (on, off) = (rate as usize, l.len().saturating_sub(rate as usize));
+    let at = |s: f32| (s * rate as f32) as usize;
+    let on = secs(3).map(at).unwrap_or(rate as usize);
+    let off = secs(4).map(at).unwrap_or(l.len().saturating_sub(rate as usize));
     for start in (0..l.len()).step_by(block) {
         let end = (start + block).min(l.len());
         let target = if start >= on && start < off { 1.0 } else { 0.0 };
