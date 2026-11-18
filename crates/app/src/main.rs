@@ -54,7 +54,7 @@ fn main() {
     let demo = args.iter().any(|a| a == "--demo") || cfg!(not(target_os = "macos"));
     let open = args.iter().position(|a| a == "--open").and_then(|i| args.get(i + 1)).cloned();
 
-    gpui_platform::application().run(move |cx: &mut App| {
+    gpui_platform::application().with_assets(zwisper_ui::assets()).run(move |cx: &mut App| {
         let (core, platform): (zwisper_core::Core, Arc<dyn zwisper_ui::UiPlatform>) = if demo {
             let root = data_dir().join("demo");
             let ports = demo::ports(&root);

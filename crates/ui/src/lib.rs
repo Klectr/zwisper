@@ -26,3 +26,9 @@ pub mod widgets;
 
 pub use actions::{open_library, open_settings, start_meeting, toggle_dictation};
 pub use state::{install, AppState, UiPlatform};
+
+/// Icons used by gpui-component (dropdown chevrons, checkmarks, …). Pass to
+/// `Application::with_assets` before anything renders.
+pub fn assets() -> impl gpui::AssetSource {
+    gpui_kit_assets::Assets::new("")
+}

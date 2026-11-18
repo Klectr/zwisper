@@ -7,12 +7,36 @@ use gpui::{
     div, point, prelude::*, px, size, AnyWindowHandle, App, Bounds, Context, Div, Entity, SharedString, TitlebarOptions,
     Window, WindowBounds, WindowOptions,
 };
+use gpui_component::tab::{Tab, TabBar};
+use gpui_component::select::{Select, SelectEvent, SelectState};
+use gpui_component::switch::Switch;
+use gpui_component::{IndexPath, Root, Sizable};
 use zwisper_core::domain::*;
 use zwisper_core::Command;
 
+const SYSTEM_DEFAULT_MIC: &str = "System default";
+
 pub struct SettingsView {
     state: Entity<AppState>,
-    mics: Vec<String>,
+    mic_select: Entity<SelectState<Vec<SharedString>>>,
+}
+
+/// A gpui-component switch bound to a settings flag.
+fn switch(id: &'static str, on: bool, f: impl Fn(&mut Settings, bool) + 'static) -> Switch {
+    Switch::new(id).checked(on).on_click(move |checked, _, cx| {
+        let checked = *checked;
+        state(cx).update(cx, |s, _| s.update_settings(|x| f(x, checked)));
+    })
+}
+
+/// gpui-component's segmented control (replaces our `segmented`).
+fn choice(id: &'static str, labels: &[&'static str], selected: usize, on_pick: impl Fn(usize, &mut App) + 'static) -> TabBar {
+    TabBar::new(id)
+        .segmented()
+        .small()
+        .selected_index(selected)
+        .children(labels.iter().map(|l| Tab::new().label(*l)))
+        .on_click(move |i: &usize, _, cx| on_pick(*i, cx))
 }
 
 pub fn open(cx: &mut App) -> Option<AnyWindowHandle> {
@@ -28,8 +52,8 @@ pub fn open(cx: &mut App) -> Option<AnyWindowHandle> {
             is_resizable: false,
             ..Default::default()
         },
-        |_, cx| {
-            cx.new(|cx| {
+        |window, cx| {
+            let view = cx.new(|cx| {
                 cx.observe(&st, |_, _, cx| cx.notify()).detach();
                 cx.on_release(|_, cx| cx.defer(|cx| state(cx).update(cx, |s, _| s.window_closed("settings")))).detach();
                 // Re-check permissions while open (no OS callback exists).
@@ -40,9 +64,25 @@ pub fn open(cx: &mut App) -> Option<AnyWindowHandle> {
                     }
                 })
                 .detach();
-                let mics = st.read(cx).core.microphones();
-                SettingsView { state: st, mics }
-            })
+                // Microphone dropdown: "System default" + every input device.
+                let current = st.read(cx).settings.microphone.clone();
+                let mut items: Vec<SharedString> = vec![SYSTEM_DEFAULT_MIC.into()];
+                items.extend(st.read(cx).core.microphones().into_iter().map(SharedString::from));
+                let selected = current
+                    .as_deref()
+                    .and_then(|c| items.iter().position(|i| i.as_ref() == c))
+                    .unwrap_or(0);
+                let mic_select = cx.new(|cx| SelectState::new(items, Some(IndexPath::new(selected)), window, cx));
+                cx.subscribe(&mic_select, |_, _, e: &SelectEvent<Vec<SharedString>>, cx| {
+                    let SelectEvent::Confirm(Some(name)) = e else { return };
+                    let mic = (name.as_ref() != SYSTEM_DEFAULT_MIC).then(|| name.to_string());
+                    state(cx).update(cx, |s, _| s.update_settings(|x| x.microphone = mic));
+                })
+                .detach();
+                SettingsView { state: st, mic_select }
+            });
+            // gpui-component overlays (dropdown menus) need its Root at the top.
+            cx.new(|cx| Root::new(view, window, cx))
         },
     )
     .ok()
@@ -156,8 +196,6 @@ impl Render for SettingsView {
         let s = self.state.read(cx);
         let settings = s.settings.clone();
         let tier = s.tier;
-        let mic_label = settings.microphone.clone().unwrap_or_else(|| "System default".into());
-        let mics = self.mics.clone();
         let acks = s.core.acknowledgements();
         let folder = s.core.library_root();
 
@@ -203,37 +241,17 @@ impl Render for SettingsView {
         let audio = self.group(
             "Audio",
             vec![
-                row(
-                    "Microphone",
-                    capsule("mic", format!("{mic_label}  ⌄"), cx, move |_, _, cx| {
-                        // Cycle: System default → each device → default.
-                        let st = state(cx);
-                        st.update(cx, |s, _| {
-                            let cur = s.settings.microphone.clone();
-                            let next = match cur {
-                                None => mics.first().cloned(),
-                                Some(c) => {
-                                    let i = mics.iter().position(|m| *m == c);
-                                    i.and_then(|i| mics.get(i + 1).cloned())
-                                }
-                            };
-                            s.update_settings(|x| x.microphone = next);
-                        });
-                    }),
-                    cx,
-                )
+                row("Microphone", div().w(px(220.)).child(Select::new(&self.mic_select).small().menu_width(px(260.))), cx)
                 .into_any_element(),
                 row(
                     "Record system audio in meetings",
-                    toggle("sysaudio", settings.record_system_audio, cx, |_, _, cx| {
-                        state(cx).update(cx, |s, _| s.update_settings(|x| x.record_system_audio = !x.record_system_audio));
-                    }),
+                    switch("sysaudio", settings.record_system_audio, |x, on| x.record_system_audio = on),
                     cx,
                 )
                 .into_any_element(),
                 row(
                     "Other audio while dictating",
-                    segmented(
+                    choice(
                         "ducking",
                         &["Muffle", "Lower", "Leave"],
                         match settings.dictation_ducking {
@@ -241,8 +259,7 @@ impl Render for SettingsView {
                             Ducking::Lower => 1,
                             Ducking::Off => 2,
                         },
-                        cx,
-                        |i, _, cx| {
+                        |i, cx| {
                             let how = [Ducking::Muffle, Ducking::Lower, Ducking::Off][i];
                             state(cx).update(cx, |s, _| s.update_settings(|x| x.dictation_ducking = how));
                         },
@@ -270,7 +287,7 @@ impl Render for SettingsView {
                     .items_center()
                     .justify_between()
                     .child(div().text_size(px(13.5)).child("Notes model"))
-                    .child(segmented("tier", &["Standard", "Lite"], tier_ix, cx, |i, _, cx| {
+                    .child(choice("tier", &["Standard", "Lite"], tier_ix, |i, cx| {
                         let t = if i == 0 { Tier::Standard } else { Tier::Lite };
                         state(cx).read(cx).send(Command::SetTier(t));
                     })),
@@ -292,9 +309,7 @@ impl Render for SettingsView {
             vec![
                 row(
                     "Keep dictation history",
-                    toggle("hist", settings.keep_dictation_history, cx, |_, _, cx| {
-                        state(cx).update(cx, |s, _| s.update_settings(|x| x.keep_dictation_history = !x.keep_dictation_history));
-                    }),
+                    switch("hist", settings.keep_dictation_history, |x, on| x.keep_dictation_history = on),
                     cx,
                 )
                 .into_any_element(),
@@ -329,9 +344,9 @@ impl Render for SettingsView {
             "General",
             vec![row(
                 "Launch at login",
-                toggle("login", settings.launch_at_login, cx, |_, _, cx| {
+                Switch::new("login").checked(settings.launch_at_login).on_click(|on, _, cx| {
+                    let on = *on;
                     state(cx).update(cx, |s, cx| {
-                        let on = !s.settings.launch_at_login;
                         match s.platform.set_launch_at_login(on) {
                             Ok(()) => s.update_settings(|x| x.launch_at_login = on),
                             Err(e) => s.notify_toast(format!("Couldn't change login item: {e}"), true, cx),
