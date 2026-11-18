@@ -122,48 +122,39 @@ Zwisper uses ports and adapters:
 A test enforces this dependency rule.
 
 ```mermaid
-flowchart LR
-    subgraph input["You"]
-        keys["Global hotkeys<br/>⌥Space · Esc"]
-        ui["UI · zwisper-ui<br/>pill · meeting · library · settings"]
-    end
+flowchart TB
+    keys["Global hotkeys<br/>⌥Space · Esc"]
+    ui["zwisper-ui<br/>pill · meeting · library · settings"]
 
-    subgraph core["zwisper-core (no OS, engine or UI deps)"]
-        ctl["Controller<br/>command loop"]
+    subgraph core["zwisper-core · no OS, engine or UI dependencies"]
+        ctl["Controller"]
         svc["Services<br/>dictation · meeting · pipeline · notes"]
-        ports{{"Ports (traits)<br/>AudioSource · Transcriber · Diarizer<br/>NoteWriter · TextInjector · AudioDucker<br/>SessionRepository · ModelStore · …"}}
         bus[("Event bus")]
+        ports{{"Ports (traits)"}}
+        ctl --> svc
+        svc --> ports
+        svc -- Event --> bus
     end
 
-    subgraph adapters["Adapters (one per job)"]
-        audio["audio-macos<br/>mic · system-audio tap · muffle"]
-        platform["platform-macos<br/>hotkeys · paste · permissions"]
-        sherpa["sherpa<br/>Parakeet · Silero · diarizer"]
-        llama["llama<br/>Qwen notes"]
-        store["store-fs · templates"]
-        models["models-http<br/>downloads + SHA-256"]
+    subgraph adapters["Adapters · one per job"]
+        audio["audio-macos<br/>mic · tap · muffle"]
+        platform["platform-macos<br/>hotkeys · paste"]
+        sherpa["sherpa<br/>speech · speakers"]
+        llama["llama<br/>notes"]
+        store["store-fs<br/>templates"]
+        models["models-http<br/>downloads"]
     end
 
-    app(["app · composition root<br/>picks the adapters"])
-    hf[("Hugging Face · GitHub<br/>one-time model download")]
+    app(["app · composition root"])
+    net[("Hugging Face · GitHub")]
 
     keys -- Command --> ctl
     ui -- Command --> ctl
-    ctl --> svc
-    svc --> ports
-    svc -- Event --> bus
     bus -- Event --> ui
-
-    ports -.-> audio
-    ports -.-> platform
-    ports -.-> sherpa
-    ports -.-> llama
-    ports -.-> store
-    ports -.-> models
-
+    ports -. implemented by .-> adapters
     app ==> core
     app ==> adapters
-    models -- "the only network use" --> hf
+    models -- "one-time model download<br/>(the only network use)" --> net
 ```
 
 Solid arrows are runtime data flow, dotted arrows are "implemented by", and thick arrows are where the app wires things together.
