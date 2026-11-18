@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/core",
+    "crates/adapters/fakes",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.85"
+
+[workspace.dependencies]
+zwisper-core = { path = "crates/core" }
+zwisper-fakes = { path = "crates/adapters/fakes" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+crossbeam-channel = "0.5"
+arc-swap = "1"
+parking_lot = "0.12"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "std"] }
+ulid = { version = "1", features = ["serde"] }
+strsim = "0.11"
+tracing = "0.1"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"

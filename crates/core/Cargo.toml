@@ -1,0 +1,21 @@
+[package]
+name = "zwisper-core"
+description = "Domain, ports, services and event bus. No engines, no UI, no OS APIs."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+crossbeam-channel.workspace = true
+arc-swap.workspace = true
+parking_lot.workspace = true
+chrono.workspace = true
+ulid.workspace = true
+strsim.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+zwisper-fakes.workspace = true
+serde_json.workspace = true
