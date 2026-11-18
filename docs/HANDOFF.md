@@ -17,7 +17,7 @@ The project moved from a Linux cloud session to local development on the Mac. Re
 | Topic | Decision |
 |---|---|
 | Platform | macOS first (Apple Silicon, 14.4+). Windows and Linux are later, as new adapters only |
-| UI | Plain `gpui` 0.2.2 from crates.io with small custom widgets. **Not** gpui-component/gpui-kit: it depends on a forked `gpui-pre` and a large dependency tree. Revisit only if a big widget (rich editor, tables) is needed |
+| UI | **GPUI Kit** (`gpui-kit` =0.10.0, [gpui-kit.com](https://gpui-kit.com)), used under the crate name `gpui`. It bundles `gpui-pre` (weekly snapshots of Zed's gpui; the crates.io `gpui` hasn't been released since Oct 2025) and gpui-component. Changed 2026-11-17. Windows open through `gpui::open_window` (adds the kit's `Root`); the pill stays custom. Kit components are themed with our palette in `state.rs::apply_component_theme`. Upgrade by bumping the single `gpui-kit` pin (and the `gpui-pre-platform` pin in `crates/ui/Cargo.toml`, which only switches on runtime shaders) |
 | Language | English only |
 | Product philosophy | "Apple, not Android": one model per job and a fixed set of five templates. The only model choice is the Standard/Lite tier; no model picker, no cloud, no API keys |
 | Models | Speech: Parakeet TDT 0.6B v2 int8 (sherpa-onnx). VAD: Silero v5. Speakers: pyannote seg-3.0 + WeSpeaker ResNet34 (sherpa-onnx). Notes: Qwen3-4B-Instruct-2507 Q4_K_M (Standard) or Qwen3-1.7B Q4_K_M (Lite), via llama.cpp. All pinned with SHA-256 in `crates/adapters/models-http/src/manifest.rs` |

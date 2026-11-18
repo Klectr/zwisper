@@ -23,7 +23,8 @@ pub struct LibraryView {
 
 pub fn open(cx: &mut App) -> Option<AnyWindowHandle> {
     let st = state(cx);
-    cx.open_window(
+    // gpui-kit wraps the view in its Root (needed for dropdowns, dialogs…).
+    gpui::open_window(
         WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(Bounds::centered(None, size(px(560.), px(680.)), cx))),
             titlebar: Some(TitlebarOptions {
@@ -34,6 +35,7 @@ pub fn open(cx: &mut App) -> Option<AnyWindowHandle> {
             window_min_size: Some(size(px(420.), px(400.))),
             ..Default::default()
         },
+        cx,
         |_, cx| {
             cx.new(|cx| {
                 let search = cx.new(|cx| TextEditor::new(cx, "Search", false));
@@ -60,7 +62,7 @@ pub fn open(cx: &mut App) -> Option<AnyWindowHandle> {
         },
     )
     .ok()
-    .map(|h| h.into())
+    .map(|(handle, _)| handle)
 }
 
 fn day_label(d: NaiveDate) -> String {

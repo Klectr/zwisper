@@ -6,12 +6,11 @@ use gpui::{actions, App, KeyBinding};
 actions!(zwisper, [Quit, OpenLibrary, OpenSettings, StartMeeting, CloseWindow]);
 
 pub fn bind(cx: &mut App) {
-    let m = if cfg!(target_os = "macos") { "cmd" } else { "ctrl" };
     cx.bind_keys([
-        KeyBinding::new(&format!("{m}-q"), Quit, None),
-        KeyBinding::new(&format!("{m}-,"), OpenSettings, None),
-        KeyBinding::new(&format!("{m}-l"), OpenLibrary, None),
-        KeyBinding::new(&format!("{m}-w"), CloseWindow, None),
+        KeyBinding::new(cmd_or_ctrl!("q"), Quit, None),
+        KeyBinding::new(cmd_or_ctrl!(","), OpenSettings, None),
+        KeyBinding::new(cmd_or_ctrl!("l"), OpenLibrary, None),
+        KeyBinding::new(cmd_or_ctrl!("w"), CloseWindow, None),
     ]);
     cx.on_action(|_: &Quit, cx| {
         state(cx).read(cx).send(zwisper_core::Command::Shutdown);

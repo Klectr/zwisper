@@ -22,30 +22,33 @@ actions!(
 const CONTEXT: &str = "ZwisperEditor";
 
 pub fn bind_keys(cx: &mut App) {
-    let m = if cfg!(target_os = "macos") { "cmd" } else { "ctrl" };
-    let w = if cfg!(target_os = "macos") { "alt" } else { "ctrl" };
+    // Key bindings need 'static strings. cmd_or_ctrl! is ⌘ on macOS, Ctrl
+    // elsewhere; word movement is ⌥ on macOS, Ctrl elsewhere.
+    let mac = cfg!(target_os = "macos");
+    let (word_back, word_left, word_right) =
+        if mac { ("alt-backspace", "alt-left", "alt-right") } else { ("ctrl-backspace", "ctrl-left", "ctrl-right") };
     cx.bind_keys([
         KeyBinding::new("backspace", Backspace, Some(CONTEXT)),
-        KeyBinding::new(&format!("{w}-backspace"), DeleteWordLeft, Some(CONTEXT)),
+        KeyBinding::new(word_back, DeleteWordLeft, Some(CONTEXT)),
         KeyBinding::new("delete", Delete, Some(CONTEXT)),
         KeyBinding::new("left", Left, Some(CONTEXT)),
         KeyBinding::new("right", Right, Some(CONTEXT)),
-        KeyBinding::new(&format!("{w}-left"), WordLeft, Some(CONTEXT)),
-        KeyBinding::new(&format!("{w}-right"), WordRight, Some(CONTEXT)),
+        KeyBinding::new(word_left, WordLeft, Some(CONTEXT)),
+        KeyBinding::new(word_right, WordRight, Some(CONTEXT)),
         KeyBinding::new("up", Up, Some(CONTEXT)),
         KeyBinding::new("down", Down, Some(CONTEXT)),
         KeyBinding::new("shift-left", SelectLeft, Some(CONTEXT)),
         KeyBinding::new("shift-right", SelectRight, Some(CONTEXT)),
         KeyBinding::new("shift-up", SelectUp, Some(CONTEXT)),
         KeyBinding::new("shift-down", SelectDown, Some(CONTEXT)),
-        KeyBinding::new(&format!("{m}-a"), SelectAll, Some(CONTEXT)),
-        KeyBinding::new(&format!("{m}-v"), Paste, Some(CONTEXT)),
-        KeyBinding::new(&format!("{m}-c"), Copy, Some(CONTEXT)),
-        KeyBinding::new(&format!("{m}-x"), Cut, Some(CONTEXT)),
+        KeyBinding::new(cmd_or_ctrl!("a"), SelectAll, Some(CONTEXT)),
+        KeyBinding::new(cmd_or_ctrl!("v"), Paste, Some(CONTEXT)),
+        KeyBinding::new(cmd_or_ctrl!("c"), Copy, Some(CONTEXT)),
+        KeyBinding::new(cmd_or_ctrl!("x"), Cut, Some(CONTEXT)),
         KeyBinding::new("home", Home, Some(CONTEXT)),
         KeyBinding::new("end", End, Some(CONTEXT)),
-        KeyBinding::new(&format!("{m}-left"), Home, Some(CONTEXT)),
-        KeyBinding::new(&format!("{m}-right"), End, Some(CONTEXT)),
+        KeyBinding::new(cmd_or_ctrl!("left"), Home, Some(CONTEXT)),
+        KeyBinding::new(cmd_or_ctrl!("right"), End, Some(CONTEXT)),
         KeyBinding::new("enter", Newline, Some(CONTEXT)),
         KeyBinding::new("escape", Escape, Some(CONTEXT)),
     ]);
@@ -68,7 +71,7 @@ pub struct TextEditor {
     reversed: bool,
     marked: Option<Range<usize>>,
     /// Layout cache: (paragraph start offset, wrapped line, y offset).
-    layout: Vec<(usize, WrappedLine, Pixels)>,
+    layout: Vec<(usize, std::rc::Rc<WrappedLine>, Pixels)>,
     bounds: Option<Bounds<Pixels>>,
     line_height: Pixels,
     selecting: bool,
@@ -304,7 +307,7 @@ impl TextEditor {
     }
     fn escape(&mut self, _: &Escape, window: &mut Window, cx: &mut Context<Self>) {
         cx.emit(EditorEvent::Cancel);
-        window.blur();
+        window.blur(cx);
     }
     fn paste(&mut self, _: &Paste, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(text) = cx.read_from_clipboard().and_then(|i| i.text()) {
@@ -325,7 +328,7 @@ impl TextEditor {
     }
 
     fn on_mouse_down(&mut self, e: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        window.focus(&self.focus);
+        window.focus(&self.focus, cx);
         self.selecting = true;
         let o = self.offset_for(e.position);
         if e.click_count >= 2 {
@@ -433,7 +436,7 @@ struct EditorElement {
 }
 
 struct Prepaint {
-    lines: Vec<(usize, WrappedLine, Pixels)>,
+    lines: Vec<(usize, std::rc::Rc<WrappedLine>, Pixels)>,
     quads: Vec<PaintQuad>,
     cursor: Option<PaintQuad>,
 }
@@ -445,7 +448,7 @@ impl IntoElement for EditorElement {
     }
 }
 
-fn shape(editor: &TextEditor, width: Pixels, window: &mut Window, cx: &App) -> Vec<(usize, WrappedLine, Pixels)> {
+fn shape(editor: &TextEditor, width: Pixels, window: &mut Window, cx: &App) -> Vec<(usize, std::rc::Rc<WrappedLine>, Pixels)> {
     let theme = Theme::get(cx);
     let style = window.text_style();
     let font_size = style.font_size.to_pixels(window.rem_size());
@@ -479,7 +482,7 @@ fn shape(editor: &TextEditor, width: Pixels, window: &mut Window, cx: &App) -> V
             .and_then(|mut v| v.pop())
             .unwrap_or_default();
         let h = shaped.size(line_height).height.max(line_height);
-        out.push((start, shaped, y));
+        out.push((start, std::rc::Rc::new(shaped), y));
         y += h;
         start += para.len() + 1;
     }

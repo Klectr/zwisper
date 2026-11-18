@@ -1,6 +1,17 @@
 //! Zwisper's GPUI front-end. Depends only on `zwisper-core`: it sends
 //! `Command`s and renders `Event`s. Window chrome is calm and minimal.
 
+/// A `'static` key-binding string: `cmd-<key>` on macOS, `ctrl-<key>` elsewhere.
+macro_rules! cmd_or_ctrl {
+    ($key:literal) => {
+        if cfg!(target_os = "macos") {
+            concat!("cmd-", $key)
+        } else {
+            concat!("ctrl-", $key)
+        }
+    };
+}
+
 pub mod actions;
 pub mod editor;
 pub mod library;
@@ -15,3 +26,9 @@ pub mod widgets;
 
 pub use actions::{open_library, open_settings, start_meeting, toggle_dictation};
 pub use state::{install, AppState, UiPlatform};
+
+/// Icons used by gpui-component (dropdown chevrons, checkmarks, …). Pass to
+/// `Application::with_assets` before anything renders.
+pub fn assets() -> impl gpui::AssetSource {
+    gpui::assets::Assets::new("")
+}
