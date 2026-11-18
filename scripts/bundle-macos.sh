@@ -24,6 +24,7 @@ cp target/release/zwisper "$APP/Contents/MacOS/zwisper"
 cp packaging/macos/Info.plist "$APP/Contents/Info.plist"
 # GPL-3.0: the license and the attribution terms travel with the app.
 cp LICENSE NOTICE "$APP/Contents/Resources/"
+cp packaging/macos/AppIcon.icns "$APP/Contents/Resources/"   # see packaging/macos/icon/
 
 # Bundle any dylibs the engines link dynamically (e.g. onnxruntime / sherpa-onnx).
 for lib in $(otool -L "$APP/Contents/MacOS/zwisper" | awk '/@rpath|target\/release/ {print $1}'); do
