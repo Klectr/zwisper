@@ -188,6 +188,8 @@ impl AudioDucker for NoDucking {
 pub enum HotkeyAction {
     Dictate,
     Meeting,
+    /// Cancel the current dictation. Only bound while dictating (it's Esc).
+    Cancel,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -203,6 +205,13 @@ pub trait HotkeyService: Send {
     /// Replace all bindings. `chord` is e.g. "Alt+Space".
     fn bind(&mut self, bindings: &[(HotkeyAction, String)], callback: HotkeyCallback) -> Result<()>;
     fn unbind_all(&mut self);
+    /// Add (`Some(chord)`) or remove (`None`) one extra binding for `action`
+    /// without touching the others — e.g. Esc only while dictating, so it
+    /// isn't taken from other apps the rest of the time. Uses the callback
+    /// from `bind`.
+    fn set_temporary(&mut self, _action: HotkeyAction, _chord: Option<&str>) -> Result<()> {
+        Ok(())
+    }
 }
 
 pub trait Permissions: Send + Sync {

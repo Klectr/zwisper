@@ -35,6 +35,8 @@ struct Bindings {
 pub struct MacHotkeys {
     manager: GlobalHotKeyManager,
     registered: Vec<HotKey>,
+    /// Bindings added with `set_temporary`, by action.
+    temporary: HashMap<HotkeyAction, HotKey>,
     shared: Arc<Mutex<Bindings>>,
     stop: Arc<AtomicBool>,
     thread: Option<JoinHandle<()>>,
@@ -61,7 +63,7 @@ impl MacHotkeys {
                 .spawn(move || listen(shared, stop))
                 .map_err(|e| Error::InvalidState(format!("spawn hotkey thread: {e}")))?
         };
-        Ok(MacHotkeys { manager, registered: Vec::new(), shared, stop, thread: Some(thread) })
+        Ok(MacHotkeys { manager, registered: Vec::new(), temporary: HashMap::new(), shared, stop, thread: Some(thread) })
     }
 }
 
@@ -125,7 +127,29 @@ impl HotkeyService for MacHotkeys {
         Ok(())
     }
 
+    fn set_temporary(&mut self, action: HotkeyAction, chord: Option<&str>) -> Result<()> {
+        if let Some(old) = self.temporary.remove(&action) {
+            if let Err(e) = self.manager.unregister(old) {
+                tracing::warn!(error = %e, "unregistering temporary hotkey failed");
+            }
+            self.registered.retain(|h| h.id() != old.id());
+            self.shared.lock().unwrap_or_else(|p| p.into_inner()).actions.remove(&old.id());
+        }
+        let Some(chord) = chord else { return Ok(()) };
+        let c = parse_chord(chord).map_err(|e| Error::InvalidState(format!("shortcut: {e}")))?;
+        let hk = HotKey::from_str(&c.to_hotkey_string())
+            .map_err(|e| Error::InvalidState(format!("shortcut '{chord}': {e}")))?;
+        self.manager
+            .register(hk)
+            .map_err(|e| Error::InvalidState(format!("could not register {chord}: {e}")))?;
+        self.registered.push(hk);
+        self.temporary.insert(action, hk);
+        self.shared.lock().unwrap_or_else(|p| p.into_inner()).actions.insert(hk.id(), action);
+        Ok(())
+    }
+
     fn unbind_all(&mut self) {
+        self.temporary.clear();
         if !self.registered.is_empty() {
             if let Err(e) = self.manager.unregister_all(&self.registered) {
                 tracing::warn!(error = %e, "unregistering hotkeys failed");
@@ -156,7 +180,8 @@ mod tests {
     /// Every chord the settings UI can produce must be accepted by global-hotkey.
     #[test]
     fn canonical_strings_parse_in_global_hotkey() {
-        for c in ["Alt+Space", "Alt+Shift+M", "Cmd+Ctrl+1", "F13", "⌘⇧K", "Ctrl+Escape", "Alt+/"] {
+        // "Escape" alone is the temporary cancel-dictation binding.
+        for c in ["Alt+Space", "Alt+Shift+M", "Cmd+Ctrl+1", "F13", "⌘⇧K", "Ctrl+Escape", "Alt+/", "Escape"] {
             let s = parse_chord(c).unwrap().to_hotkey_string();
             HotKey::from_str(&s).unwrap_or_else(|e| panic!("{c} -> {s}: {e}"));
         }

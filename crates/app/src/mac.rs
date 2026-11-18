@@ -97,6 +97,7 @@ fn install_hotkeys(core: &Core) {
     };
     let s = core.settings();
     let c = core.clone();
+    let events = core.subscribe();
     let res = hk.bind(
         &[(HotkeyAction::Dictate, s.dictate_shortcut.clone()), (HotkeyAction::Meeting, s.meeting_shortcut.clone())],
         Box::new(move |action, key| match action {
@@ -107,11 +108,35 @@ fn install_hotkeys(core: &Core) {
                 }
             }
             HotkeyAction::Meeting => {}
+            HotkeyAction::Cancel if key == KeyState::Pressed => c.send(Command::CancelDictation),
+            HotkeyAction::Cancel => {}
         }),
     );
     if let Err(e) = res {
         tracing::error!(%e, "could not bind shortcuts");
     }
+    // Esc cancels, but only while listening: a global Esc would otherwise be
+    // taken from every other app. (The pill never has focus, so a normal key
+    // binding can't see it.)
+    let hk = std::sync::Arc::new(std::sync::Mutex::new(hk));
+    let watcher = hk.clone();
+    let spawned = std::thread::Builder::new().name("zwisper-esc".into()).spawn(move || {
+        let mut bound = false;
+        for e in events {
+            let zwisper_core::Event::Dictation(phase) = e else { continue };
+            let want = matches!(phase, zwisper_core::DictationPhase::Listening);
+            if want != bound {
+                let mut hk = watcher.lock().unwrap_or_else(|p| p.into_inner());
+                match hk.set_temporary(HotkeyAction::Cancel, want.then_some("Escape")) {
+                    Ok(()) => bound = want,
+                    Err(e) => tracing::warn!(%e, "could not toggle Esc-to-cancel"),
+                }
+            }
+        }
+    });
+    if let Err(e) = spawned {
+        tracing::warn!(%e, "Esc-to-cancel unavailable");
+    }
     // Keep the manager alive for the life of the app.
-    Box::leak(Box::new(hk));
+    std::mem::forget(hk);
 }
