@@ -12,6 +12,7 @@ members = [
     "crates/adapters/platform-macos",
     "crates/ui",
     "crates/app",
+    "xtask",
 ]
 
 [workspace.package]

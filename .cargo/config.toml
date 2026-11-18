@@ -1,0 +1,3 @@
+[alias]
+# Build the release app and DMG, then open the drag-to-Applications window.
+app = "run --quiet --package xtask --"

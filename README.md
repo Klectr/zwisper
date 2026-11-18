@@ -61,10 +61,10 @@ cargo run --release -p zwisper
 To build the app (ad-hoc signed, for local use):
 
 ```bash
-./scripts/bundle-macos.sh
+cargo app
 ```
 
-This writes `target/release/bundle/Zwisper.app` and `Zwisper.dmg`, then opens the DMG so you can drag Zwisper into Applications. Set `NO_OPEN=1` to skip opening it.
+(`cargo app` runs `scripts/bundle-macos.sh`.) This writes `target/release/bundle/Zwisper.app` and `Zwisper.dmg`, then opens the DMG so you can drag Zwisper into Applications. Set `NO_OPEN=1` to skip opening it.
 
 macOS ties permissions to the app's signature, so run the bundled `.app` when testing microphone, Accessibility and system-audio access. A plain `cargo run` binary may be asked again after each rebuild.
 
