@@ -218,7 +218,7 @@ impl Render for Onboarding {
                                 v.step += 1;
                                 if v.step == 2 {
                                     let f = gpui::Focusable::focus_handle(v.try_it.read(cx), cx);
-                                    window.focus(&f);
+                                    window.focus(&f, cx);
                                 }
                                 cx.notify();
                             });

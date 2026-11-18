@@ -35,10 +35,6 @@ ulid = { version = "1", features = ["serde"] }
 strsim = "0.11"
 tracing = "0.1"
 
-# xattr 0.2.3 (pulled in by gpui's http client) doesn't build against newer libc on Linux.
-[patch.crates-io]
-xattr = { path = "third_party/xattr" }
-
 [profile.release]
 lto = "fat"
 codegen-units = 1

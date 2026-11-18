@@ -15,7 +15,7 @@ path = "src/main.rs"
 # don't need full Xcode (only Command Line Tools). Release builds
 # (bundle-macos.sh, CI) pass --no-default-features to precompile them.
 default = ["runtime-shaders"]
-runtime-shaders = ["gpui/runtime_shaders", "zwisper-ui/runtime-shaders"]
+runtime-shaders = ["gpui_platform/runtime_shaders", "zwisper-ui/runtime-shaders"]
 
 [dependencies]
 zwisper-core.workspace = true
@@ -24,7 +24,8 @@ zwisper-fakes.workspace = true
 zwisper-store-fs = { path = "../adapters/store-fs" }
 zwisper-templates = { path = "../adapters/templates" }
 zwisper-models-http = { path = "../adapters/models-http" }
-gpui = "0.2.2"
+gpui = { package = "gpui-pre", version = "=0.3.12" }
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.12", features = ["font-kit"] }
 chrono.workspace = true
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

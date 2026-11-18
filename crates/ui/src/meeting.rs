@@ -113,7 +113,7 @@ impl MeetingView {
         let recording = st.read(cx).meeting.as_ref().map(|m| m.id) == Some(id);
         if recording {
             let f = my_notes.focus_handle(cx);
-            window.focus(&f);
+            window.focus(&f, cx);
         }
 
         MeetingView {
@@ -263,7 +263,7 @@ impl MeetingView {
         self.note_editor.update(cx, |e, cx| e.set_text(&md, cx));
         self.editing_note = true;
         let f = self.note_editor.focus_handle(cx);
-        window.focus(&f);
+        window.focus(&f, cx);
         cx.notify();
     }
 
@@ -309,7 +309,7 @@ impl MeetingView {
         })
         .detach();
         let f = ed.focus_handle(cx);
-        window.focus(&f);
+        window.focus(&f, cx);
         self.rename = Some((sp, ed));
         self.menu = None;
         cx.notify();
@@ -754,9 +754,9 @@ impl MeetingView {
                     .track_scroll(&self.scroll)
                     .px(px(20.))
                     .pb(px(24.))
-                    .on_scroll_wheel(cx.listener(|this, _, _, _| {
+                    .on_scroll(cx.listener(|this, _, _, _| {
                         let off = this.scroll.offset().y;
-                        let max = this.scroll.max_offset().height;
+                        let max = this.scroll.max_offset().y;
                         this.follow = -off >= max - px(24.);
                     }))
                     .when(empty, |d| {

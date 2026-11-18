@@ -1,6 +1,17 @@
 //! Zwisper's GPUI front-end. Depends only on `zwisper-core`: it sends
 //! `Command`s and renders `Event`s. Window chrome is calm and minimal.
 
+/// A `'static` key-binding string: `cmd-<key>` on macOS, `ctrl-<key>` elsewhere.
+macro_rules! cmd_or_ctrl {
+    ($key:literal) => {
+        if cfg!(target_os = "macos") {
+            concat!("cmd-", $key)
+        } else {
+            concat!("ctrl-", $key)
+        }
+    };
+}
+
 pub mod actions;
 pub mod editor;
 pub mod library;

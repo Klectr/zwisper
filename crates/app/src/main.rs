@@ -16,7 +16,7 @@ mod mac;
 #[cfg(target_os = "macos")]
 mod tray;
 
-use gpui::{App, Application};
+use gpui::App;
 use std::sync::Arc;
 
 fn data_dir() -> std::path::PathBuf {
@@ -54,7 +54,7 @@ fn main() {
     let demo = args.iter().any(|a| a == "--demo") || cfg!(not(target_os = "macos"));
     let open = args.iter().position(|a| a == "--open").and_then(|i| args.get(i + 1)).cloned();
 
-    Application::new().run(move |cx: &mut App| {
+    gpui_platform::application().run(move |cx: &mut App| {
         let (core, platform): (zwisper_core::Core, Arc<dyn zwisper_ui::UiPlatform>) = if demo {
             let root = data_dir().join("demo");
             let ports = demo::ports(&root);
