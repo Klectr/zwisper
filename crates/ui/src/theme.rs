@@ -1,4 +1,6 @@
-//! Design tokens. Calm, dark-first, monochrome; colour only carries meaning.
+//! Design tokens. Derived from the active GPUI Kit theme (Catppuccin Mocha /
+//! Latte, see `state.rs`) so our custom widgets match the kit's components.
+//! `dark()`/`light()` are fallbacks (and handy in tests).
 
 use gpui::{hsla, rgb, App, Global, Hsla, Rgba, WindowAppearance};
 
@@ -55,6 +57,27 @@ impl Theme {
             selection: hsla(215. / 360., 0.9, 0.55, 0.25),
             cursor: hsla(215. / 360., 1.0, 0.45, 1.0),
             speakers: [rgb(0x4d9a06), rgb(0x1f6feb), rgb(0x8250df), rgb(0xd97706), rgb(0xd6336c), rgb(0x0f9d8a)],
+        }
+    }
+
+    /// Our palette from a GPUI Kit theme's colours.
+    pub fn from_kit(c: &gpui::component::ThemeColor, dark: bool) -> Self {
+        let rgba = |h: Hsla| -> Rgba { h.into() };
+        Theme {
+            dark,
+            // Catppuccin: mantle behind, base for cards, surface for controls.
+            window: rgba(c.background),
+            raised: rgba(if dark { c.popover } else { c.list_even }),
+            inset: rgba(c.secondary),
+            hairline: c.border,
+            text: c.foreground,
+            text_2: c.foreground.opacity(0.72),
+            text_3: c.muted_foreground,
+            accent: rgba(c.primary),
+            recording: rgba(c.red),
+            selection: c.primary.opacity(0.3),
+            cursor: c.primary,
+            speakers: [c.green, c.blue, c.magenta, c.yellow, c.red, c.cyan].map(rgba),
         }
     }
 

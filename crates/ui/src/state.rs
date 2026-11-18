@@ -350,54 +350,43 @@ impl AppState {
 }
 
 /// Install the UI: theme, key bindings, state. Call once from the app's main.
-/// Dress gpui-component in our palette (its default is shadcn's monochrome).
-fn apply_component_theme(t: &Theme, cx: &mut App) {
-    use gpui::component::{Theme as Kit, ThemeMode};
-    Kit::change(if t.dark { ThemeMode::Dark } else { ThemeMode::Light }, None, cx);
-    let h = |c: gpui::Rgba| -> gpui::Hsla { c.into() };
-    let accent = h(t.accent);
-    let t = t.clone();
-    Kit::update(cx, move |k| {
-        k.background = h(t.window);
-        k.popover = h(t.raised);
-        k.popover_foreground = t.text;
-        k.foreground = t.text;
-        k.muted_foreground = t.text_3;
-        k.border = t.hairline;
-        k.input = t.hairline;
-        k.ring = accent.opacity(0.6);
-        k.primary = accent;
-        k.primary_hover = accent.opacity(0.9);
-        k.primary_active = accent.opacity(0.8);
-        k.primary_foreground = gpui::black();
-        k.secondary = h(t.inset);
-        k.secondary_hover = h(t.inset).opacity(0.85);
-        k.secondary_active = h(t.raised);
-        k.secondary_foreground = t.text;
-        k.list_hover = h(t.inset);
-        k.list_active = accent.opacity(0.25);
-        k.list_active_border = accent;
-        k.switch = h(t.inset);
-        k.switch_thumb = gpui::white();
-        k.tab_bar_segmented = h(t.inset);
-        k.tab_active = h(t.raised);
-        k.tab_active_foreground = t.text;
-        k.tab_foreground = t.text_2;
-        k.accent = h(t.inset);
-        k.accent_foreground = t.text;
+/// Catppuccin from GPUI Kit's theme collection (gpui-kit.com/themes):
+/// Mocha when dark, Latte when light.
+const THEMES: &str = include_str!("../themes/catppuccin.json");
+const DARK_THEME: &str = "Catppuccin Mocha";
+const LIGHT_THEME: &str = "Catppuccin Latte";
+
+/// Load the kit theme for `dark`/light and return our palette derived from it,
+/// so custom widgets (pill, cards, keycaps…) match the kit's components.
+fn load_theme(dark: bool, cx: &mut App) -> Theme {
+    use gpui::component::{Theme as Kit, ThemeMode, ThemeRegistry};
+    if let Err(e) = ThemeRegistry::global_mut(cx).load_themes_from_str(THEMES) {
+        tracing::warn!(error = %e, "could not load the Catppuccin themes; using the kit default");
+    }
+    let themes = ThemeRegistry::global(cx).themes();
+    let (mocha, latte) = (themes.get(DARK_THEME).cloned(), themes.get(LIGHT_THEME).cloned());
+    Kit::update(cx, |k| {
+        if let Some(t) = mocha {
+            k.dark_theme = t;
+        }
+        if let Some(t) = latte {
+            k.light_theme = t;
+        }
     });
+    // `change` applies the registered theme for that mode.
+    Kit::change(if dark { ThemeMode::Dark } else { ThemeMode::Light }, None, cx);
+    Theme::from_kit(&Kit::global(cx).colors, dark)
 }
 
 pub fn install(core: Core, platform: Arc<dyn UiPlatform>, cx: &mut App) -> Entity<AppState> {
-    let theme = match std::env::var("ZWISPER_THEME").as_deref() {
-        Ok("dark") => Theme::dark(),
-        Ok("light") => Theme::light(),
-        _ => Theme::for_appearance(cx.window_appearance()),
+    let dark = match std::env::var("ZWISPER_THEME").as_deref() {
+        Ok("dark") => true,
+        Ok("light") => false,
+        _ => !matches!(cx.window_appearance(), gpui::WindowAppearance::Light | gpui::WindowAppearance::VibrantLight),
     };
-    let ours = theme.clone();
-    cx.set_global(theme);
     gpui::init(cx);
-    apply_component_theme(&ours, cx);
+    let theme = load_theme(dark, cx);
+    cx.set_global(theme);
     crate::editor::bind_keys(cx);
     crate::actions::bind(cx);
     let entity = cx.new(|_| AppState::new(core, platform));
