@@ -107,6 +107,7 @@ impl Worker {
             if (self.allowed)() {
                 match MuffleTap::start() {
                     Ok(tap) => {
+                        tracing::info!("muffling other audio");
                         tap.set_target(1.0);
                         self.muffle = Some(tap);
                         return;
@@ -119,6 +120,7 @@ impl Worker {
         }
         if how != Ducking::Off {
             if let Some(l) = Lowered::apply(LOWER_FACTOR) {
+                tracing::info!("lowered the output volume");
                 l.save(&self.state_file);
                 self.lowered = Some(l);
             }

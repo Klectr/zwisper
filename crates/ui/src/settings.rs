@@ -32,6 +32,14 @@ pub fn open(cx: &mut App) -> Option<AnyWindowHandle> {
             cx.new(|cx| {
                 cx.observe(&st, |_, _, cx| cx.notify()).detach();
                 cx.on_release(|_, cx| cx.defer(|cx| state(cx).update(cx, |s, _| s.window_closed("settings")))).detach();
+                // Re-check permissions while open (no OS callback exists).
+                cx.spawn(async move |this, cx| loop {
+                    cx.background_executor().timer(std::time::Duration::from_secs(1)).await;
+                    if this.update(cx, |_, cx| cx.notify()).is_err() {
+                        break;
+                    }
+                })
+                .detach();
                 let mics = st.read(cx).core.microphones();
                 SettingsView { state: st, mics }
             })
@@ -162,6 +170,36 @@ impl Render for SettingsView {
             cx,
         );
 
+        // Muffling captures other apps' audio, so it needs System audio access;
+        // without it dictation quietly lowers the volume instead. Say so.
+        let perms = s.platform.permissions();
+        let muffle_hint = (settings.dictation_ducking == Ducking::Muffle
+            && perms.state(PermissionKind::SystemAudio) != PermissionState::Granted)
+            .then(|| {
+                div()
+                    .px(px(14.))
+                    .py(px(8.))
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .gap(px(12.))
+                    .child(
+                        div()
+                            .text_size(px(12.))
+                            .text_color(t.text_3)
+                            .child("Muffling needs System audio access. Until then, other audio is just lowered."),
+                    )
+                    .child(capsule("muffle-allow", "Allow…", cx, |_, _, cx| {
+                        let p = state(cx).read(cx).platform.permissions();
+                        if p.state(PermissionKind::SystemAudio) == PermissionState::NotDetermined {
+                            p.request(PermissionKind::SystemAudio);
+                        } else {
+                            p.open_settings(PermissionKind::SystemAudio);
+                        }
+                    }))
+                    .into_any_element()
+            });
+
         let audio = self.group(
             "Audio",
             vec![
@@ -212,7 +250,10 @@ impl Render for SettingsView {
                     cx,
                 )
                 .into_any_element(),
-            ],
+            ]
+            .into_iter()
+            .chain(muffle_hint)
+            .collect(),
             cx,
         );
 

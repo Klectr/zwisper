@@ -25,10 +25,30 @@ fn data_dir() -> std::path::PathBuf {
         .unwrap_or_else(|| std::env::temp_dir().join("zwisper"))
 }
 
-fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
+/// `~/Library/Logs/Zwisper/zwisper.log` (Console.app shows it too). Truncated
+/// once it passes 5 MB, so it never grows unbounded.
+fn log_file() -> Option<std::fs::File> {
+    let dir = directories::BaseDirs::new()?.home_dir().join("Library/Logs/Zwisper");
+    std::fs::create_dir_all(&dir).ok()?;
+    let path = dir.join("zwisper.log");
+    let too_big = std::fs::metadata(&path).map(|m| m.len() > 5 << 20).unwrap_or(false);
+    std::fs::OpenOptions::new().create(true).append(!too_big).write(true).truncate(too_big).open(path).ok()
+}
+
+fn init_logging() {
+    use tracing_subscriber::prelude::*;
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into());
+    // A bundled app launched from Finder has no visible stderr, so also log to a file.
+    let file = log_file().map(|f| tracing_subscriber::fmt::layer().with_ansi(false).with_writer(Arc::new(f)));
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
+        .with(file)
         .init();
+}
+
+fn main() {
+    init_logging();
 
     let args: Vec<String> = std::env::args().collect();
     let demo = args.iter().any(|a| a == "--demo") || cfg!(not(target_os = "macos"));
