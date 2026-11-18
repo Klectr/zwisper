@@ -149,8 +149,7 @@ flowchart TB
     net[("Hugging Face · GitHub")]
 
     keys -- Command --> ctl
-    ui -- Command --> ctl
-    bus -- Event --> ui
+    ui <-- "Commands out · Events in" --> core
     ports -. implemented by .-> adapters
     app ==> core
     app ==> adapters
