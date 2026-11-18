@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zwisper · Free, local-only dictation and meeting notes for macOS</title>
+<meta name="description" content="Press ⌥Space, talk, and your words appear wherever you're typing. Meetings become clean notes. Free for everyone, open source, and nothing ever leaves your Mac.">
+<meta name="theme-color" content="#11111b">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Zwisper: dictation and meeting notes, free and local-only">
+<meta property="og:description" content="No trial. No Pro tier. No paywall. Everything runs on your Mac.">
+<meta property="og:image" content="assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Zwisper: dictation and meeting notes, free and local-only">
+<meta name="twitter:description" content="No trial. No Pro tier. No paywall. Everything runs on your Mac.">
+<meta name="twitter:image" content="assets/og.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%231e1e2e'/%3E%3Cg fill='%23cba6f7'%3E%3Crect x='7' y='13' width='3' height='6' rx='1.5'/%3E%3Crect x='12' y='9' width='3' height='14' rx='1.5'/%3E%3Crect x='17' y='6' width='3' height='20' rx='1.5'/%3E%3Crect x='22' y='11' width='3' height='10' rx='1.5'/%3E%3C/g%3E%3C/svg%3E">
+<style>
+  /* Catppuccin Mocha */
+  :root {
+    --crust: #11111b; --mantle: #181825; --base: #1e1e2e;
+    --surface0: #313244; --surface1: #45475a; --overlay0: #6c7086;
+    --subtext0: #a6adc8; --subtext1: #bac2de; --text: #cdd6f4;
+    --mauve: #cba6f7; --blue: #89b4fa; --lavender: #b4befe; --red: #f38ba8; --green: #a6e3a1;
+    --card: #15151f; --line: rgba(205, 214, 244, 0.08);
+    --radius: 18px;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    --display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--crust); color: var(--text);
+    font: 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  }
+  a { color: inherit; text-decoration: none; }
+  img { max-width: 100%; height: auto; display: block; }
+  .wrap { width: min(1120px, 100% - 32px); margin-inline: auto; }
+
+  /* ---------- Top bar + floating nav ---------- */
+  .topbar { position: absolute; inset: 0 0 auto; z-index: 5; }
+  .topbar .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -0.02em; font-size: 18px; }
+  .brand svg { width: 26px; height: 26px; }
+  .tag { font: 600 10px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; padding: 4px 7px; border-radius: 6px; border: 1px solid var(--line); color: var(--subtext0); }
+  .toplinks { display: flex; gap: 6px; }
+  .toplinks a { font-size: 14px; color: var(--subtext1); padding: 7px 12px; border-radius: 999px; }
+  .toplinks a:hover { background: rgba(255,255,255,.06); color: var(--text); }
+
+  .floatnav {
+    position: fixed; top: 14px; left: 50%; z-index: 20;
+    transform: translate(-50%, -140%); transition: transform .45s cubic-bezier(.2,.8,.2,1);
+    display: flex; align-items: center; gap: 18px; padding: 7px 7px 7px 16px;
+    width: min(760px, calc(100% - 32px)); justify-content: space-between;
+    background: rgba(30, 30, 46, .72); backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid var(--line); border-radius: 999px; box-shadow: 0 10px 40px rgba(0,0,0,.35);
+  }
+  .floatnav.show { transform: translate(-50%, 0); }
+  .floatnav .actions { display: flex; gap: 6px; align-items: center; }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; font: 600 15px/1 var(--sans);
+    padding: 13px 20px; border-radius: 999px; transition: transform .15s, background .15s, border-color .15s;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .btn svg { width: 17px; height: 17px; flex: none; }
+  .btn:active { transform: scale(.98); }
+  .btn-primary { background: var(--text); color: var(--crust); }
+  .btn-primary:hover { background: #fff; }
+  .btn-ghost { background: rgba(255,255,255,.04); border-color: var(--line); color: var(--text); }
+  .btn-ghost:hover { background: rgba(255,255,255,.08); border-color: rgba(205,214,244,.16); }
+  .btn-sm { padding: 9px 14px; font-size: 13.5px; }
+
+  /* ---------- Hero ---------- */
+  .hero { position: relative; padding: 150px 0 0; isolation: isolate; }
+  .hero::before {
+    content: ""; position: absolute; inset: 0 0 -10%; z-index: -1;
+    background:
+      radial-gradient(60% 50% at 22% 18%, rgba(203,166,247,.30), transparent 70%),
+      radial-gradient(55% 45% at 80% 12%, rgba(137,180,250,.28), transparent 70%),
+      radial-gradient(70% 60% at 50% 55%, rgba(180,190,254,.10), transparent 75%),
+      linear-gradient(180deg, #232338 0%, #1a1a2a 38%, var(--crust) 78%);
+    filter: blur(8px);
+    -webkit-mask-image: linear-gradient(#000 55%, transparent 92%);
+            mask-image: linear-gradient(#000 55%, transparent 92%);
+  }
+  .hero::after { /* soft grain so the gradient doesn't band */
+    content: ""; position: absolute; inset: 0; z-index: -1; opacity: .06; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; font: 600 12px/1 var(--sans); letter-spacing: .18em; text-transform: uppercase; color: var(--subtext0); }
+  .eyebrow::before { content: "✦"; color: var(--mauve); letter-spacing: 0; }
+  .hero-copy { text-align: center; }
+  h1 {
+    font: 600 clamp(40px, 6.4vw, 72px)/1.08 var(--display); letter-spacing: -0.035em;
+    margin: 22px 0 22px; color: #e6ebff;
+  }
+  h1 .soft { color: var(--subtext1); font-weight: 500; }
+  .lede { max-width: 640px; margin: 0 auto; color: var(--subtext0); font-size: 18px; }
+  .cta { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 34px; }
+  .reqs { margin-top: 16px; font-size: 13px; color: var(--overlay0); }
+
+  .stage { position: relative; margin: 70px auto 0; width: min(1040px, 100%); }
+  .stage .window { position: relative; width: 100%; filter: drop-shadow(0 40px 80px rgba(0,0,0,.55)); }
+  .stage .pill {
+    position: absolute; right: -2%; bottom: -9%; width: min(430px, 44%);
+    filter: drop-shadow(0 24px 50px rgba(0,0,0,.6));
+    animation: floaty 6s ease-in-out infinite;
+  }
+  @keyframes floaty { 50% { transform: translateY(-8px); } }
+
+  /* ---------- Sections ---------- */
+  section { padding: 130px 0 0; }
+  .section-head { text-align: center; margin-bottom: 56px; }
+  h2 { font: 500 clamp(32px, 4.4vw, 48px)/1.15 var(--display); letter-spacing: -0.03em; margin: 0; color: #e6ebff; }
+  h2 .soft { color: var(--subtext0); }
+  .section-head p { color: var(--subtext0); max-width: 600px; margin: 18px auto 0; }
+
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  .card {
+    background: linear-gradient(180deg, rgba(30,30,46,.75), var(--card));
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 30px 30px 0;
+    overflow: hidden; display: flex; flex-direction: column; min-height: 400px;
+  }
+  .card h3 { font: 600 19px/1.3 var(--display); margin: 0 0 8px; letter-spacing: -0.01em; }
+  .card p { margin: 0; color: var(--subtext0); font-size: 15px; }
+  .visual { flex: 1; display: grid; place-items: center; padding: 28px 0 30px; min-height: 220px; }
+  kbd {
+    font: 600 13px/1 var(--sans); color: var(--text); background: var(--surface0);
+    border: 1px solid var(--surface1); border-bottom-width: 3px; border-radius: 8px; padding: 6px 9px;
+  }
+
+  /* Dictate visual */
+  .keys { display: flex; gap: 8px; align-items: center; margin-bottom: 22px; justify-content: center; }
+  .keys kbd { font-size: 20px; padding: 12px 16px; border-radius: 12px; }
+  .keys .plus { color: var(--overlay0); }
+  .typed { font-size: 15px; color: var(--subtext1); background: var(--mantle); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; width: min(380px, 100%); }
+  .typed .caret { display: inline-block; width: 2px; height: 1.1em; background: var(--mauve); vertical-align: -3px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* Muffle visual */
+  .lanes { width: min(400px, 100%); display: grid; gap: 22px; }
+  .lane-label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--overlay0); margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .bars { display: flex; align-items: center; gap: 4px; height: 56px; }
+  .bars i { flex: 1; border-radius: 3px; background: var(--text); height: 12%; animation: talk 1.1s ease-in-out infinite; }
+  .bars.muffled { filter: blur(2.5px); opacity: .35; }
+  .bars.muffled i { background: var(--subtext0); animation-duration: 1.7s; }
+  @keyframes talk { 0%, 100% { height: 12%; } 50% { height: var(--h, 70%); } }
+
+  /* Meetings visual */
+  /* A peek at the window: fixed height, its transparent shadow margin trimmed off. */
+  .crop { width: min(420px, 100%); height: 250px; overflow: hidden; align-self: end; border-radius: 12px 12px 0 0;
+          -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+  .crop img { width: 120%; max-width: none; margin: -7% 0 0 -10%; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+  .chip { font-size: 12.5px; padding: 5px 10px; border-radius: 999px; background: rgba(203,166,247,.10); color: var(--lavender); border: 1px solid rgba(203,166,247,.18); }
+
+  /* Local-only visual */
+  .netlog { width: min(420px, 100%); font: 13px/1.9 var(--mono); background: var(--mantle); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .netlog .ok { color: var(--green); }
+  .netlog .no { color: var(--overlay0); }
+  .netlog .no b { color: var(--red); font-weight: 500; }
+
+  /* Story */
+  .story { max-width: 760px; margin: 0 auto; text-align: center; }
+  .story blockquote { margin: 0; font: 500 clamp(22px, 2.6vw, 28px)/1.5 var(--display); letter-spacing: -0.015em; color: var(--subtext1); }
+  .story blockquote em { font-style: normal; color: var(--text); }
+  .story blockquote .strike { color: var(--red); }
+  .story cite { display: block; margin-top: 24px; font-style: normal; color: var(--overlay0); font-size: 14px; }
+
+  /* Get it */
+  .get .card { min-height: 0; padding-bottom: 30px; }
+  .cmd { margin-top: 20px; display: flex; align-items: center; gap: 12px; background: var(--mantle); border: 1px solid var(--line); border-radius: 12px; padding: 12px 12px 12px 16px; font: 13px/1.6 var(--mono); color: var(--subtext1); }
+  .cmd { align-items: flex-start; }
+  .cmd code { flex: 1; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .cmd code span { display: block; }
+  .cmd code span::before { content: "$ "; color: var(--overlay0); }
+  .copy { font: 600 12px/1 var(--sans); color: var(--subtext0); background: none; border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; cursor: pointer; }
+  .copy:hover { color: var(--text); border-color: rgba(205,214,244,.2); }
+  .note { margin-top: 14px; font-size: 13.5px; color: var(--overlay0); }
+  .note kbd { font-size: 11px; padding: 3px 6px; border-bottom-width: 2px; }
+
+  /* Final CTA */
+  .final { position: relative; text-align: center; padding: 150px 0 140px; margin-top: 60px; isolation: isolate; }
+  .final::before {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    background: radial-gradient(50% 60% at 50% 100%, rgba(137,180,250,.18), transparent 70%),
+                radial-gradient(40% 50% at 50% 110%, rgba(203,166,247,.22), transparent 70%);
+  }
+  .final h2 { font-weight: 600; }
+  .final p { color: var(--subtext0); margin: 16px 0 0; }
+
+  footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--overlay0); font-size: 13.5px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  footer a:hover { color: var(--text); }
+  footer nav { display: flex; gap: 18px; }
+
+  /* Reveal on scroll */
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity .8s ease, transform .8s cubic-bezier(.2,.8,.2,1); }
+  .reveal.in { opacity: 1; transform: none; }
+
+  @media (max-width: 820px) {
+    .grid { grid-template-columns: 1fr; }
+    .card { min-height: 0; padding: 24px 22px 0; }
+    .hero { padding-top: 120px; }
+    .stage .pill { right: 50%; transform: translateX(50%); bottom: -14%; width: 72%; animation: none; }
+    section { padding-top: 100px; }
+    .floatnav .toplinks { display: none; }
+    .floatnav .btn-ghost { display: none; }
+    .topbar .toplinks a:not(:last-child) { display: none; }
+    .topbar .tag { display: none; }
+    .lede { font-size: 16.5px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .reveal { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#1e1e2e" stroke="rgba(205,214,244,.14)"/><g fill="#cba6f7"><rect x="7" y="13" width="3" height="6" rx="1.5"/><rect x="12" y="9" width="3" height="14" rx="1.5"/><rect x="17" y="6" width="3" height="20" rx="1.5"/><rect x="22" y="11" width="3" height="10" rx="1.5"/></g></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14"/></symbol>
+  <symbol id="i-github" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.56-.29-5.25-1.28-5.25-5.69 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.77.11 3.06.74.8 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.27 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></symbol>
+</svg>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Zwisper home"><svg><use href="#logo"/></svg>zwisper <span class="tag">macOS</span></a>
+    <nav class="toplinks">
+      <a href="#features">Features</a>
+      <a href="#why">Why</a>
+      <a href="https://github.com/Klectr/zwisper">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<div class="floatnav" id="floatnav" aria-hidden="true">
+  <a class="brand" href="#top" tabindex="-1"><svg><use href="#logo"/></svg>zwisper</a>
+  <div class="actions">
+    <nav class="toplinks"><a href="#features" tabindex="-1">Features</a><a href="#get" tabindex="-1">Install</a></nav>
+    <a class="btn btn-ghost btn-sm" href="https://github.com/Klectr/zwisper" tabindex="-1"><svg><use href="#i-github"/></svg>GitHub</a>
+    <a class="btn btn-primary btn-sm" href="https://github.com/Klectr/zwisper/releases/latest" tabindex="-1"><svg><use href="#i-download"/></svg>Download</a>
+  </div>
+</div>
+
+<main id="top">
+  <div class="hero">
+    <div class="wrap hero-copy">
+      <span class="eyebrow">Free · Open source · Local only</span>
+      <h1>Talk, and it types.<br><span class="soft">Free, and only on your Mac.</span></h1>
+      <p class="lede">Press <kbd>⌥</kbd> <kbd>Space</kbd>, speak, and your words appear wherever you're typing. Record a meeting and get clean notes. No account, no cloud, and no Pro tier waiting to lock you out.</p>
+      <div class="cta" id="hero-cta">
+        <a class="btn btn-primary" href="https://github.com/Klectr/zwisper/releases/latest"><svg><use href="#i-download"/></svg>Download for macOS</a>
+        <a class="btn btn-ghost" href="https://github.com/Klectr/zwisper"><svg><use href="#i-github"/></svg>View on GitHub</a>
+      </div>
+      <p class="reqs">macOS 14.4 or later · Apple Silicon · MIT licensed</p>
+    </div>
+    <div class="wrap">
+      <div class="stage reveal">
+        <img class="window" src="assets/meeting-dark.png" alt="Zwisper meeting window: notes with a summary, decisions and action items beside a speaker-labelled transcript" width="1600" height="1143">
+        <img class="pill" src="assets/pill.png" alt="The dictation pill showing a waveform with Stop and Cancel hints" width="904" height="284">
+      </div>
+    </div>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <h2>Everything you need.<br><span class="soft">Nothing you don't.</span></h2>
+        <p>One model per job, one screen of settings, and no menus full of choices you never wanted to make.</p>
+      </div>
+      <div class="grid">
+        <article class="card reveal">
+          <h3>Dictate anywhere</h3>
+          <p>Press the shortcut, talk, press it again, and the text lands where your cursor is. Hold it for push-to-talk, and Esc cancels.</p>
+          <div class="visual">
+            <div>
+              <div class="keys"><kbd>⌥ Option</kbd><span class="plus">+</span><kbd>Space</kbd></div>
+              <div class="typed">Let's ship on Thursday once QA signs off<span class="caret"></span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card reveal">
+          <h3>The room goes quiet</h3>
+          <p>While you talk, other audio is muffled, like a neighbour's TV through the wall. You can tell it's there, but you can't follow it.</p>
+          <div class="visual">
+            <div class="lanes" aria-hidden="true">
+              <div><div class="lane-label"><span>Your voice</span><span>clear</span></div><div class="bars" id="bars-you"></div></div>
+              <div><div class="lane-label"><span>Everything else</span><span>muffled</span></div><div class="bars muffled" id="bars-tv"></div></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card reveal">
+          <h3>Meetings in, notes out</h3>
+          <p>A live transcript with speakers labelled, then notes in one click. Your own notes are treated as facts.</p>
+          <div class="chips"><span class="chip">Summary</span><span class="chip">Action items</span><span class="chip">To-do list</span><span class="chip">1:1</span><span class="chip">Follow-up email</span></div>
+          <div class="visual" style="padding-bottom:0"><div class="crop"><img src="assets/library.png" alt="The Zwisper library of past meetings" loading="lazy" width="848" height="1000"></div></div>
+        </article>
+
+        <article class="card reveal">
+          <h3>Local only. For good.</h3>
+          <p>Every model runs on your Mac. Audio, transcripts and notes never leave it, and there will never be a cloud version.</p>
+          <div class="visual">
+            <div class="netlog" aria-label="Network activity">
+              <div class="ok">✓ models · one-time download</div>
+              <div class="no"><b>✕</b> audio upload · never</div>
+              <div class="no"><b>✕</b> account · none</div>
+              <div class="no"><b>✕</b> API keys · none</div>
+              <div class="no"><b>✕</b> analytics · none</div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="why">
+    <div class="wrap story reveal">
+      <span class="eyebrow">Why it exists</span>
+      <h2 style="margin:18px 0 34px">Tired of being upsold<br><span class="soft">for talking to my computer.</span></h2>
+      <blockquote>
+        I kept trying dictation and transcription apps. I'd have to pick one or the other, or find one that did both but hid half of it behind a paywall. They <em>start you free</em>, <em>get you used to it</em>, then <span class="strike">lock you out until you subscribe to Pro</span>.<br><br>
+        So I built my own, and made it free for everybody. Stop renting your voice. <em>Take Zwisper and make it your own.</em>
+      </blockquote>
+      <cite>From the maker of Zwisper</cite>
+    </div>
+  </section>
+
+  <section id="get" class="get">
+    <div class="wrap">
+      <div class="section-head reveal"><h2>Get Zwisper</h2></div>
+      <div class="grid">
+        <article class="card reveal">
+          <h3>Download the app</h3>
+          <p>Grab the latest <code>.dmg</code> from GitHub Releases and drag Zwisper into Applications. Models download the first time they're needed.</p>
+          <div class="cta" style="justify-content:flex-start;margin-top:22px">
+            <a class="btn btn-primary" href="https://github.com/Klectr/zwisper/releases/latest"><svg><use href="#i-download"/></svg>Latest release</a>
+          </div>
+          <p class="note">Zwisper isn't notarized by Apple, so macOS stops it the first time. Open System Settings → Privacy &amp; Security and click <b>Open Anyway</b>.</p>
+        </article>
+        <article class="card reveal">
+          <h3>Build from source</h3>
+          <p>You need Rust and the Xcode Command Line Tools. One command builds the app and opens the installer.</p>
+          <div class="cmd"><code id="cmd"><span>git clone https://github.com/Klectr/zwisper</span><span>cd zwisper &amp;&amp; cargo app</span></code><button class="copy" data-copy="cmd">Copy</button></div>
+          <p class="note">It's MIT licensed: fork it, change it, ship your own.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <div class="final">
+    <div class="wrap reveal">
+      <h2>Free. For everyone.</h2>
+      <p>No trial. No Pro tier. No paywall.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://github.com/Klectr/zwisper/releases/latest"><svg><use href="#i-download"/></svg>Download for macOS</a>
+        <a class="btn btn-ghost" href="https://github.com/Klectr/zwisper"><svg><use href="#i-github"/></svg>Star on GitHub</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Zwisper by <a href="https://github.com/Klectr">Klectr</a> · MIT License</span>
+    <nav>
+      <a href="https://github.com/Klectr/zwisper">GitHub</a>
+      <a href="https://github.com/Klectr/zwisper/releases">Releases</a>
+      <a href="https://github.com/Klectr/zwisper#readme">README</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  // Floating nav appears once the hero's buttons scroll away.
+  const nav = document.getElementById('floatnav');
+  new IntersectionObserver(([e]) => {
+    const show = !e.isIntersecting && e.boundingClientRect.top < 0;
+    nav.classList.toggle('show', show);
+    nav.setAttribute('aria-hidden', String(!show));
+    nav.querySelectorAll('a').forEach(a => a.tabIndex = show ? 0 : -1);
+  }).observe(document.getElementById('hero-cta'));
+
+  // Fade sections in as they arrive.
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }), { rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // Waveform bars: varied heights and offsets so they read as speech.
+  function fill(id, n, seed) {
+    const el = document.getElementById(id);
+    for (let i = 0; i < n; i++) {
+      const b = document.createElement('i');
+      const h = 30 + 65 * Math.abs(Math.sin(i * 1.7 + seed)) * (0.6 + 0.4 * Math.abs(Math.sin(i * 0.37)));
+      b.style.setProperty('--h', h.toFixed(0) + '%');
+      b.style.animationDelay = (-(i * 0.083 + seed) % 1.1).toFixed(2) + 's';
+      el.appendChild(b);
+    }
+  }
+  fill('bars-you', 34, 0.3);
+  fill('bars-tv', 34, 2.1);
+
+  // Copy buttons.
+  document.querySelectorAll('.copy').forEach(btn => btn.addEventListener('click', async () => {
+    const text = [...document.getElementById(btn.dataset.copy).children].map(s => s.textContent).join('\n');
+    try { await navigator.clipboard.writeText(text); btn.textContent = 'Copied'; }
+    catch { btn.textContent = 'Select & copy'; }
+    setTimeout(() => (btn.textContent = 'Copy'), 1600);
+  }));
+</script>
+</body>
+</html>
