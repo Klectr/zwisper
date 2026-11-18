@@ -1,0 +1,19 @@
+[package]
+name = "zwisper-store-fs"
+description = "Plain-file storage: session folders (JSON + Markdown), WAV tracks, dictation log, settings TOML."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+zwisper-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+parking_lot.workspace = true
+tracing.workspace = true
+toml = "0.8"
+hound = "3"
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,0 +1,9 @@
+[package]
+name = "zwisper-templates"
+description = "The curated note templates: prompts tuned for the Qwen3 notes models, plus output validators."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+zwisper-core.workspace = true

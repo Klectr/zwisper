@@ -3,6 +3,9 @@ resolver = "2"
 members = [
     "crates/core",
     "crates/adapters/fakes",
+    "crates/adapters/templates",
+    "crates/adapters/store-fs",
+    "crates/adapters/models-http",
 ]
 
 [workspace.package]

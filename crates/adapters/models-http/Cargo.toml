@@ -1,0 +1,17 @@
+[package]
+name = "zwisper-models-http"
+description = "ModelStore: compiled-in manifest, resumable HTTPS downloads, SHA-256 verification."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+zwisper-core.workspace = true
+ureq = { version = "2", features = ["native-certs"] }
+sha2 = "0.10"
+hex = "0.4"
+parking_lot.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
