@@ -92,6 +92,27 @@ fn parakeet_contract_and_speed() {
     assert!(segs.len() >= 2, "expected a split at the pause");
     let second = samples_to_ms(speech.len()) + 3000;
     assert!(segs.last().unwrap().start_ms + 500 >= second, "second segment starts too early");
+
+    // > 30 s input is transcribed in windows cut at pauses: 9 copies with 0.6 s gaps (~72 s).
+    let mut long = Vec::new();
+    let mut reference = String::new();
+    for _ in 0..9 {
+        long.extend_from_slice(&speech);
+        long.extend(std::iter::repeat(0.0).take(SAMPLE_RATE as usize * 6 / 10));
+        reference.push_str(REFERENCE_0);
+        reference.push(' ');
+    }
+    let t2 = Instant::now();
+    let segs = t.transcribe(&long).unwrap();
+    let hyp: String = segs.iter().map(|s| s.text.as_str()).collect::<Vec<_>>().join(" ");
+    let e = wer(&reference, &hyp);
+    println!("{:.1}s input: {:.2?}, {} segments, WER {e:.3}, RSS {:?} MB", samples_to_ms(long.len()) as f64 / 1000.0, t2.elapsed(), segs.len(), rss_mb());
+    assert!(e < 0.1, "windowed WER {e}: {hyp}");
+    let mut last = 0;
+    for s in &segs {
+        assert!(s.start_ms >= last && s.end_ms <= samples_to_ms(long.len()));
+        last = s.start_ms;
+    }
 }
 
 #[test]
@@ -157,18 +178,35 @@ fn diarizer_contract_two_speakers() {
     assert_eq!(labels.len(), 2, "two-speaker fixture should yield exactly 2 speakers");
 }
 
-/// Prints the speaker count for a range of thresholds (tuning aid).
+/// Prints the speaker count per clustering threshold for every diarization fixture
+/// (the bundled one plus `<models>/fixtures/*-speakers-*.wav` from
+/// huggingface.co/csukuangfj/speaker-embedding-models, if downloaded). Tuning aid.
 #[test]
 #[ignore = "tuning aid"]
 fn diarizer_threshold_sweep() {
     let paths = pack(Pack::Speakers);
-    let audio = fixture("two-speakers-en.wav");
-    for th in [0.3f32, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] {
-        let mut d = SherpaDiarizer::with_threshold(&paths, th).unwrap();
-        let turns = d.diarize(&audio).unwrap();
-        let mut l: Vec<u32> = turns.iter().map(|t| t.speaker).collect();
-        l.sort();
-        l.dedup();
-        println!("threshold {th}: {} speakers, {} turns", l.len(), turns.len());
+    let mut files = vec![Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/two-speakers-en.wav")];
+    if let Ok(dir) = std::fs::read_dir(models_root().join("fixtures")) {
+        let mut more: Vec<PathBuf> = dir
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.to_string_lossy().contains("-speakers-"))
+            .collect();
+        more.sort();
+        files.extend(more);
+    }
+    let thresholds = [0.3f32, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.7, 0.8, 0.9];
+    let mut diarizers: Vec<_> =
+        thresholds.iter().map(|&th| SherpaDiarizer::with_threshold(&paths, th).unwrap()).collect();
+    for f in files {
+        let audio = read_wav(&f);
+        let mut counts = Vec::new();
+        for (th, d) in thresholds.iter().zip(diarizers.iter_mut()) {
+            let turns = d.diarize(&audio).unwrap();
+            let mut l: Vec<u32> = turns.iter().map(|t| t.speaker).collect();
+            l.sort();
+            l.dedup();
+            counts.push(format!("{th}:{}", l.len()));
+        }
+        println!("{}: {}", f.file_name().unwrap().to_string_lossy(), counts.join("  "));
     }
 }

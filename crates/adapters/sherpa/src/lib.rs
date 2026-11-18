@@ -10,22 +10,32 @@
 //!
 //! # Native linking
 //!
-//! The `sherpa-onnx-sys` build script links the **prebuilt static** sherpa-onnx + ONNX Runtime
-//! archives by default (cargo feature `static`, which we use). Nothing has to be bundled
-//! next to the binary: on macOS arm64 the final executable only additionally links the system
-//! `libc++` and the Foundation/CoreML frameworks it pulls in. The archive it needs is
-//! `sherpa-onnx-v<version>-osx-arm64-static-lib.tar.bz2` (Linux:
-//! `...-linux-x64-static-lib.tar.bz2`), fetched at build time from GitHub releases.
+//! `sherpa-onnx-sys` links **prebuilt** sherpa-onnx + ONNX Runtime libraries, fetched at build
+//! time from the sherpa-onnx GitHub release matching the crate version
+//! (`sherpa-onnx-v2.0.1-<platform>-{static,shared}-lib.tar.bz2`) into
+//! `<target-dir>/sherpa-onnx-prebuilt/`. The link mode is chosen per platform in Cargo.toml:
 //!
-//! Build-time environment variables understood by `sherpa-onnx-sys`:
-//! * `SHERPA_ONNX_ARCHIVE_DIR=/dir` — directory holding the release archive already downloaded
-//!   (use this in CI / behind proxies; its built-in downloader uses rustls with the Mozilla roots
-//!   and fails behind TLS-intercepting proxies).
-//! * `SHERPA_ONNX_LIB_DIR=/dir` — point at an already-extracted `lib/` directory instead.
+//! * **macOS (arm64 / x86_64): static** (`osx-arm64-static-lib`). Nothing to bundle; the
+//!   executable additionally links only the system `libc++` and `Foundation.framework`.
+//!   Not yet verified on a Mac together with llama.cpp in one binary — see the Linux note;
+//!   both sides use Apple's libc++ there, whose ABI is stable, so the clash is not expected.
+//!   Fallback if it ever shows up: the `shared` feature, bundling
+//!   `libsherpa-onnx-c-api.dylib` + `libonnxruntime.<ver>.dylib` in `Contents/Frameworks`
+//!   (rpath `@executable_path/../Frameworks`).
+//! * **Linux / Windows: shared.** The prebuilt static archives are compiled with GCC 11
+//!   (manylinux) and, statically linked into the same binary as llama.cpp (built by the local
+//!   GCC 13), crash on start-up: both define the inline C++ template `std::regex` internals
+//!   with different layouts and the linker keeps one (ODR violation). The shared libraries
+//!   export only the C API, which keeps those internals private. Ship
+//!   `libsherpa-onnx-c-api.so` + `libonnxruntime.so` (Windows: the `.dll`s) next to the
+//!   executable and link the app with rpath `$ORIGIN` (the build script's rpath only applies
+//!   to this crate's own targets; `cargo test`/`cargo run` find the libs via the
+//!   target dir, where the build script also copies them).
 //!
-//! If we ever switch to the `shared` feature, `libsherpa-onnx-c-api.dylib` and
-//! `libonnxruntime.<ver>.dylib` must be bundled in `Contents/Frameworks` (rpath
-//! `@loader_path`/`@executable_path/../Frameworks`). Static linking avoids that.
+//! The downloader uses `ureq`; our `[build-dependencies]` entry turns on ureq's `native-certs`
+//! so it trusts the OS certificate store (works behind TLS-intercepting proxies). For offline /
+//! CI builds, `sherpa-onnx-sys` also understands `SHERPA_ONNX_ARCHIVE_DIR=/dir` (directory
+//! holding the release archive) and `SHERPA_ONNX_LIB_DIR=/dir` (an extracted `lib/` directory).
 
 use sherpa_onnx::{
     FastClusteringConfig, OfflineRecognizer, OfflineRecognizerConfig, OfflineSpeakerDiarization,
@@ -56,6 +66,31 @@ fn path_str(paths: &ModelPaths, name: &str) -> Result<String> {
 const SEGMENT_GAP_MS: Ms = 1_000;
 /// Duration assumed for the last token when the model reports none.
 const FALLBACK_TOKEN_MS: Ms = 80;
+/// Longer input is transcribed in windows of at most this many seconds (encoder memory grows
+/// steeply with length: ~1.4 GB extra for 150 s in one go). Cuts go at the quietest
+/// 100 ms in the last `CUT_SEARCH_S` seconds of each window.
+const MAX_WINDOW_S: usize = 30;
+const CUT_SEARCH_S: usize = 6;
+
+/// Where to cut `audio` (≤ `max` samples from its start): the start of the quietest 100 ms
+/// frame within the final `search` samples before `max`. Returns `audio.len()` if it fits.
+pub fn cut_point(audio: &[f32], max: usize, search: usize) -> usize {
+    if audio.len() <= max {
+        return audio.len();
+    }
+    let frame = SAMPLE_RATE as usize / 10;
+    let from = max.saturating_sub(search);
+    let mut best = (f32::MAX, max);
+    let mut i = from;
+    while i + frame <= max {
+        let e: f32 = audio[i..i + frame].iter().map(|x| x * x).sum();
+        if e < best.0 {
+            best = (e, i + frame / 2);
+        }
+        i += frame / 2;
+    }
+    best.1.max(1)
+}
 
 /// NeMo Parakeet TDT 0.6B v2 (int8) via sherpa-onnx's offline transducer recognizer.
 pub struct ParakeetTranscriber {
@@ -87,6 +122,22 @@ impl Transcriber for ParakeetTranscriber {
     }
 
     fn transcribe(&mut self, audio: &[f32]) -> Result<Vec<Segment>> {
+        let max = MAX_WINDOW_S * SAMPLE_RATE as usize;
+        let search = CUT_SEARCH_S * SAMPLE_RATE as usize;
+        let mut out = Vec::new();
+        let mut start = 0;
+        while start < audio.len() {
+            let len = cut_point(&audio[start..], max, search);
+            let offset = samples_to_ms(start);
+            out.extend(self.transcribe_window(&audio[start..start + len])?.into_iter().map(|s| s.offset(offset)));
+            start += len;
+        }
+        Ok(out)
+    }
+}
+
+impl ParakeetTranscriber {
+    fn transcribe_window(&mut self, audio: &[f32]) -> Result<Vec<Segment>> {
         // Digital silence: skip the model entirely.
         if audio.iter().all(|x| x.abs() < 1e-4) {
             return Ok(Vec::new());
@@ -315,8 +366,14 @@ impl VoiceActivity for SileroVad {
 
 // ───────────────────────────── diarizer ─────────────────────────────
 
-/// Default cosine-distance threshold for agglomerative clustering (lower = more speakers).
-pub const DEFAULT_CLUSTER_THRESHOLD: f32 = 0.5;
+/// Default distance threshold for the clustering step (lower = more speakers).
+///
+/// Tuned on the sherpa-onnx diarization fixtures (`*-speakers-*.wav` from
+/// csukuangfj/speaker-embedding-models): 0.45 is the only value tried that finds 2 speakers in
+/// all three English two-speaker files (0.40 → 3 on two of them, 0.50 → 1 on one); the
+/// Chinese four-speaker file gives 3. Re-tune against our own meeting recordings
+/// (`diarizer_threshold_sweep` test).
+pub const DEFAULT_CLUSTER_THRESHOLD: f32 = 0.45;
 
 /// pyannote segmentation-3.0 + WeSpeaker ResNet34 embeddings + fast clustering,
 /// speaker count found automatically from a distance threshold.
@@ -377,7 +434,24 @@ impl Diarizer for SherpaDiarizer {
             .filter(|t| t.start_ms < t.end_ms)
             .collect();
         turns.sort_by_key(|t| (t.start_ms, t.end_ms));
+        relabel_in_order(&mut turns);
         Ok(turns)
+    }
+}
+
+/// Renumber cluster labels 0, 1, 2… in order of first appearance (the clustering can leave
+/// gaps, e.g. labels {0, 2}).
+pub fn relabel_in_order(turns: &mut [SpeakerTurn]) {
+    let mut seen: Vec<u32> = Vec::new();
+    for t in turns {
+        let idx = match seen.iter().position(|&s| s == t.speaker) {
+            Some(i) => i,
+            None => {
+                seen.push(t.speaker);
+                seen.len() - 1
+            }
+        };
+        t.speaker = idx as u32;
     }
 }
 
@@ -419,6 +493,30 @@ mod tests {
     fn leading_subword_without_marker_starts_a_word() {
         let w = merge_tokens(&[tok("ok", 0.0, Some(0.1)), tok("ay", 0.1, Some(0.1))], 1000);
         assert_eq!(w, vec![Word { text: "okay".into(), start_ms: 0, end_ms: 200 }]);
+    }
+
+    #[test]
+    fn cuts_long_audio_at_the_quietest_point() {
+        let sr = SAMPLE_RATE as usize;
+        assert_eq!(cut_point(&vec![0.5; 10 * sr], 30 * sr, 6 * sr), 10 * sr);
+        let mut a = vec![0.5f32; 40 * sr];
+        for x in &mut a[27 * sr..27 * sr + sr / 5] {
+            *x = 0.0; // 200 ms pause at 27 s
+        }
+        let c = cut_point(&a, 30 * sr, 6 * sr);
+        assert!((27 * sr..27 * sr + sr / 5).contains(&c), "cut at {c}");
+        // No pause: still cuts within the window.
+        let c = cut_point(&vec![0.5; 40 * sr], 30 * sr, 6 * sr);
+        assert!(c <= 30 * sr && c >= 24 * sr);
+    }
+
+    #[test]
+    fn relabels_speakers_contiguously() {
+        let t = |s, sp| SpeakerTurn { start_ms: s, end_ms: s + 10, speaker: sp };
+        let mut turns = vec![t(0, 2), t(20, 0), t(40, 2), t(60, 5)];
+        relabel_in_order(&mut turns);
+        let l: Vec<u32> = turns.iter().map(|t| t.speaker).collect();
+        assert_eq!(l, vec![0, 1, 0, 2]);
     }
 
     #[test]

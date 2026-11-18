@@ -8858,6 +8858,7 @@ dependencies = [
  "hound",
  "sherpa-onnx",
  "tracing",
+ "ureq",
  "zwisper-core",
  "zwisper-models-http",
 ]

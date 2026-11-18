@@ -7,9 +7,26 @@ license.workspace = true
 
 [dependencies]
 zwisper-core.workspace = true
-sherpa-onnx = "2.0.1"
+# Link mode is per platform (see the crate docs, "Native linking"): `static` and `shared`
+# are mutually exclusive, so default features are off and each target picks one.
+sherpa-onnx = { version = "2.0.1", default-features = false }
 tracing.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+sherpa-onnx = { version = "2.0.1", default-features = false, features = ["static"] }
+
+# Linux/Windows: the prebuilt static archives are built with GCC 11 (manylinux) and clash
+# (C++ ODR: std::regex internals) with llama.cpp compiled by the local, newer compiler when
+# both land in one binary. The shared build keeps ONNX Runtime's C++ internals private.
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+sherpa-onnx = { version = "2.0.1", default-features = false, features = ["shared"] }
 
 [dev-dependencies]
 zwisper-models-http = { path = "../models-http" }
 hound = "3.5"
+
+# Not used by our build script directly: enabling `native-certs` here unifies with the
+# `ureq` build-dependency of `sherpa-onnx-sys`, whose downloader then trusts the OS
+# certificate store (needed behind TLS-intercepting proxies; harmless elsewhere).
+[build-dependencies]
+ureq = { version = "2.12", features = ["native-certs"] }
