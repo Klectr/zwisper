@@ -16,6 +16,14 @@ use zwisper_core::Command;
 
 const SYSTEM_DEFAULT_MIC: &str = "System default";
 
+/// Required by the additional terms in NOTICE (GPL-3.0 section 7(b)): any
+/// version of Zwisper, including forks, must keep this line visible here.
+pub const ATTRIBUTION: &str = "Based on Zwisper by Klectr (https://github.com/Klectr/zwisper)";
+
+/// GPL-3.0 "Appropriate Legal Notices": copyright, no warranty, where the license is.
+pub const LEGAL_NOTICE: &str = "© 2026 Klectr. Free software under the GNU GPL v3 or later, with additional \
+     terms in NOTICE. It comes with NO WARRANTY. See LICENSE and NOTICE in the source.";
+
 pub struct SettingsView {
     state: Entity<AppState>,
     mic_select: Entity<SelectState<Vec<SharedString>>>,
@@ -372,6 +380,8 @@ impl Render for SettingsView {
                     .gap(px(4.))
                     .child(div().text_size(px(13.5)).child(format!("Zwisper {}", env!("CARGO_PKG_VERSION"))))
                     .child(div().text_size(px(12.)).text_color(t.text_3).child("Everything runs on this computer. Audio never leaves it."))
+                    .child(div().pt(px(6.)).text_size(px(12.)).text_color(t.text_2).child(ATTRIBUTION))
+                    .child(div().text_size(px(11.)).text_color(t.text_3).child(LEGAL_NOTICE))
                     .children(acks.into_iter().map(|a| div().pt(px(4.)).text_size(px(11.)).text_color(t.text_3).child(a))),
             );
 

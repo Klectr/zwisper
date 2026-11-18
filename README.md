@@ -197,4 +197,9 @@ Items still to check on real hardware are marked `VERIFY ON MAC` in the code and
 
 ## License
 
-Zwisper is free for everyone, under the [MIT License](LICENSE). Take it and make it your own.
+Zwisper is free software under the [GNU GPL v3 or later](LICENSE), with two [additional terms](NOTICE):
+
+- **Keep the credit.** Any version, including forks, must show *"Based on Zwisper by Klectr (https://github.com/Klectr/zwisper)"* in its About screen.
+- **Use your own name.** Forks need their own name and logo; "Zwisper" and its logo aren't licensed.
+
+Take it, change it and share it. It just has to stay free and open, and say where it came from.
