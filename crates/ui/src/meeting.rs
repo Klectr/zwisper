@@ -44,7 +44,8 @@ pub struct MeetingView {
 pub fn open(id: SessionId, cx: &mut App) -> Option<AnyWindowHandle> {
     let bounds = Bounds::centered(None, size(px(940.), px(640.)), cx);
     let st = state(cx);
-    cx.open_window(
+    // gpui-kit wraps the view in its Root (needed for dropdowns, dialogs…).
+    gpui::open_window(
         WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
             titlebar: Some(TitlebarOptions {
@@ -56,10 +57,11 @@ pub fn open(id: SessionId, cx: &mut App) -> Option<AnyWindowHandle> {
             focus: true,
             ..Default::default()
         },
+        cx,
         |window, cx| cx.new(|cx| MeetingView::new(id, st, window, cx)),
     )
     .ok()
-    .map(|h| h.into())
+    .map(|(handle, _)| handle)
 }
 
 impl MeetingView {

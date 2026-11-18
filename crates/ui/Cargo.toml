@@ -6,15 +6,19 @@ edition.workspace = true
 license.workspace = true
 
 [features]
-# See crates/app/Cargo.toml: dev builds compile Metal shaders at runtime.
+# Compile GPUI's Metal shaders at launch so builds don't need full Xcode
+# (Command Line Tools have no `metal`). Release builds (bundle-macos.sh, CI)
+# pass --no-default-features to precompile them. Drop once Xcode is installed.
 default = ["runtime-shaders"]
-runtime-shaders = []
+runtime-shaders = ["dep:gpui_platform", "gpui_platform/runtime_shaders"]
 
 [dependencies]
 zwisper-core.workspace = true
-gpui = { package = "gpui-pre", version = "=0.3.12" }
-gpui-component = "=0.10.0"
-gpui-kit-assets = "=0.10.0"
+# GPUI Kit (gpui-kit.com): current gpui + gpui-component. Named `gpui` because
+# gpui's derive macros expand to `gpui::…` paths; gpui-kit re-exports all of gpui.
+gpui = { package = "gpui-kit", version = "=0.10.0" }
+# Only to switch on `runtime_shaders` above; must match gpui-kit's own pin.
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.12", optional = true }
 async-channel = "2"
 unicode-segmentation = "1"
 chrono.workspace = true

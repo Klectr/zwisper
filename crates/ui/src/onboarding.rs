@@ -20,7 +20,8 @@ pub struct Onboarding {
 
 pub fn open(cx: &mut App) -> Option<AnyWindowHandle> {
     let st = state(cx);
-    cx.open_window(
+    // gpui-kit wraps the view in its Root (needed for dropdowns, dialogs…).
+    gpui::open_window(
         WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(Bounds::centered(None, size(px(520.), px(520.)), cx))),
             titlebar: Some(TitlebarOptions {
@@ -31,6 +32,7 @@ pub fn open(cx: &mut App) -> Option<AnyWindowHandle> {
             is_resizable: false,
             ..Default::default()
         },
+        cx,
         |_, cx| {
             cx.new(|cx| {
                 cx.observe(&st, |_, _, cx| cx.notify()).detach();
@@ -49,7 +51,7 @@ pub fn open(cx: &mut App) -> Option<AnyWindowHandle> {
         },
     )
     .ok()
-    .map(|h| h.into())
+    .map(|(handle, _)| handle)
 }
 
 impl Onboarding {

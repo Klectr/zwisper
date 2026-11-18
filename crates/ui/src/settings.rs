@@ -7,10 +7,10 @@ use gpui::{
     div, point, prelude::*, px, size, AnyWindowHandle, App, Bounds, Context, Div, Entity, SharedString, TitlebarOptions,
     Window, WindowBounds, WindowOptions,
 };
-use gpui_component::tab::{Tab, TabBar};
-use gpui_component::select::{Select, SelectEvent, SelectState};
-use gpui_component::switch::Switch;
-use gpui_component::{IndexPath, Root, Sizable};
+use gpui::component::tab::{Tab, TabBar};
+use gpui::component::select::{Select, SelectEvent, SelectState};
+use gpui::component::switch::Switch;
+use gpui::component::{IndexPath, Sizable};
 use zwisper_core::domain::*;
 use zwisper_core::Command;
 
@@ -41,7 +41,8 @@ fn choice(id: &'static str, labels: &[&'static str], selected: usize, on_pick: i
 
 pub fn open(cx: &mut App) -> Option<AnyWindowHandle> {
     let st = state(cx);
-    cx.open_window(
+    // gpui-kit wraps the view in its Root (needed for dropdowns, dialogs…).
+    gpui::open_window(
         WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(Bounds::centered(None, size(px(520.), px(720.)), cx))),
             titlebar: Some(TitlebarOptions {
@@ -52,6 +53,7 @@ pub fn open(cx: &mut App) -> Option<AnyWindowHandle> {
             is_resizable: false,
             ..Default::default()
         },
+        cx,
         |window, cx| {
             let view = cx.new(|cx| {
                 cx.observe(&st, |_, _, cx| cx.notify()).detach();
@@ -81,12 +83,11 @@ pub fn open(cx: &mut App) -> Option<AnyWindowHandle> {
                 .detach();
                 SettingsView { state: st, mic_select }
             });
-            // gpui-component overlays (dropdown menus) need its Root at the top.
-            cx.new(|cx| Root::new(view, window, cx))
+            view
         },
     )
     .ok()
-    .map(|h| h.into())
+    .map(|(handle, _)| handle)
 }
 
 fn row(label: impl Into<SharedString>, right: impl IntoElement, cx: &App) -> Div {

@@ -352,7 +352,7 @@ impl AppState {
 /// Install the UI: theme, key bindings, state. Call once from the app's main.
 /// Dress gpui-component in our palette (its default is shadcn's monochrome).
 fn apply_component_theme(t: &Theme, cx: &mut App) {
-    use gpui_component::{Theme as Kit, ThemeMode};
+    use gpui::component::{Theme as Kit, ThemeMode};
     Kit::change(if t.dark { ThemeMode::Dark } else { ThemeMode::Light }, None, cx);
     let h = |c: gpui::Rgba| -> gpui::Hsla { c.into() };
     let accent = h(t.accent);
@@ -396,7 +396,7 @@ pub fn install(core: Core, platform: Arc<dyn UiPlatform>, cx: &mut App) -> Entit
     };
     let ours = theme.clone();
     cx.set_global(theme);
-    gpui_component::init(cx);
+    gpui::init(cx);
     apply_component_theme(&ours, cx);
     crate::editor::bind_keys(cx);
     crate::actions::bind(cx);
