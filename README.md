@@ -195,4 +195,6 @@ Items still to check on real hardware are marked `VERIFY ON MAC` in the code and
 - **Models:** credits are shown in Settings → About and listed in [`manifest.rs`](crates/adapters/models-http/src/manifest.rs). Parakeet is CC-BY-4.0 © NVIDIA.
 - **UI:** [GPUI](https://github.com/zed-industries/zed) by Zed Industries; [GPUI Kit](https://github.com/longbridge/gpui-kit) by Longbridge (Apache-2.0); the [Catppuccin](https://github.com/catppuccin/catppuccin) palette (MIT).
 
-Zwisper is MIT-licensed.
+## License
+
+Zwisper is free for everyone, under the [MIT License](LICENSE). Take it and make it your own.
