@@ -3,20 +3,65 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Zwisper · Free, local-only dictation and meeting notes for macOS</title>
-<meta name="description" content="Press ⌥Space, talk, and your words appear wherever you're typing. Meetings become clean notes. Free for everyone, open source, and nothing ever leaves your Mac.">
+<title>Zwisper · Free dictation &amp; meeting notes, local on your Mac</title>
+<meta name="description" content="Press ⌥Space, talk, and your words appear wherever you type. Meetings become clean notes. Free, open source, and nothing ever leaves your Mac.">
+<meta name="keywords" content="dictation, speech to text, transcription, meeting notes, macOS, local, offline, privacy, free, open source">
+<meta name="author" content="Klectr">
+<meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="theme-color" content="#11111b">
-<meta property="og:type" content="website">
-<meta property="og:title" content="Zwisper: dictation and meeting notes, free and local-only">
-<meta property="og:description" content="No trial. No Pro tier. No paywall. Everything runs on your Mac.">
-<meta property="og:url" content="https://zwisper.klectr.dev/">
-<meta property="og:image" content="https://zwisper.klectr.dev/assets/og.png">
 <link rel="canonical" href="https://zwisper.klectr.dev/">
+
+<!-- Open Graph (Facebook, LinkedIn, Slack, Discord, iMessage…) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Zwisper">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://zwisper.klectr.dev/">
+<meta property="og:title" content="Zwisper: free dictation and meeting notes that never leave your Mac">
+<meta property="og:description" content="No trial. No Pro tier. No paywall. Press ⌥Space, talk, and it types. Everything runs on your Mac.">
+<meta property="og:image" content="https://zwisper.klectr.dev/assets/og.png">
+<meta property="og:image:secure_url" content="https://zwisper.klectr.dev/assets/og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Zwisper: “So I built my own.” Dictation and meeting notes, free for everyone.">
+
+<!-- X / Twitter -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Zwisper: dictation and meeting notes, free and local-only">
-<meta name="twitter:description" content="No trial. No Pro tier. No paywall. Everything runs on your Mac.">
+<meta name="twitter:title" content="Zwisper: free dictation and meeting notes that never leave your Mac">
+<meta name="twitter:description" content="No trial. No Pro tier. No paywall. Press ⌥Space, talk, and it types. Everything runs on your Mac.">
 <meta name="twitter:image" content="https://zwisper.klectr.dev/assets/og.png">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%231e1e2e'/%3E%3Cg fill='%23cba6f7'%3E%3Crect x='7' y='13' width='3' height='6' rx='1.5'/%3E%3Crect x='12' y='9' width='3' height='14' rx='1.5'/%3E%3Crect x='17' y='6' width='3' height='20' rx='1.5'/%3E%3Crect x='22' y='11' width='3' height='10' rx='1.5'/%3E%3C/g%3E%3C/svg%3E">
+<meta name="twitter:image:alt" content="Zwisper: “So I built my own.” Dictation and meeting notes, free for everyone.">
+
+<!-- Icons -->
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+
+<!-- Start loading the hero screenshot right away (it's the largest paint). -->
+<link rel="preload" as="image" href="/assets/meeting-dark.webp" type="image/webp" fetchpriority="high">
+
+<!-- Structured data: lets search engines show Zwisper as a free macOS app. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Zwisper",
+  "description": "Free, local-only dictation and meeting notes for macOS. Press ⌥Space, talk, and your words appear wherever you type; meetings become clean notes. Nothing ever leaves your Mac.",
+  "url": "https://zwisper.klectr.dev/",
+  "image": "https://zwisper.klectr.dev/assets/og.png",
+  "screenshot": "https://zwisper.klectr.dev/assets/meeting-dark.png",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "macOS 14.4 or later",
+  "softwareRequirements": "Apple Silicon Mac",
+  "downloadUrl": "https://github.com/Klectr/zwisper/releases/latest",
+  "license": "https://opensource.org/licenses/MIT",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "author": { "@type": "Organization", "name": "Klectr", "url": "https://klectr.dev/" },
+  "sameAs": ["https://github.com/Klectr/zwisper"]
+}
+</script>
 <style>
   /* Catppuccin Mocha */
   :root {
@@ -264,8 +309,8 @@
     </div>
     <div class="wrap">
       <div class="stage reveal">
-        <img class="window" src="assets/meeting-dark.png" alt="Zwisper meeting window: notes with a summary, decisions and action items beside a speaker-labelled transcript" width="1600" height="1143">
-        <img class="pill" src="assets/pill.png" alt="The dictation pill showing a waveform with Stop and Cancel hints" width="904" height="284">
+        <picture><source srcset="assets/meeting-dark.webp" type="image/webp"><img class="window" src="assets/meeting-dark.png" alt="Zwisper meeting window: notes with a summary, decisions and action items beside a speaker-labelled transcript" width="1600" height="1143" fetchpriority="high" decoding="async"></picture>
+        <picture><source srcset="assets/pill.webp" type="image/webp"><img class="pill" src="assets/pill.png" alt="The dictation pill showing a waveform with Stop and Cancel hints" width="904" height="284" decoding="async"></picture>
       </div>
     </div>
   </div>
@@ -303,7 +348,7 @@
           <h3>Meetings in, notes out</h3>
           <p>A live transcript with speakers labelled, then notes in one click. Your own notes are treated as facts.</p>
           <div class="chips"><span class="chip">Summary</span><span class="chip">Action items</span><span class="chip">To-do list</span><span class="chip">1:1</span><span class="chip">Follow-up email</span></div>
-          <div class="visual" style="padding-bottom:0"><div class="crop"><img src="assets/library.png" alt="The Zwisper library of past meetings" loading="lazy" width="848" height="1000"></div></div>
+          <div class="visual" style="padding-bottom:0"><div class="crop"><picture><source srcset="assets/library.webp" type="image/webp"><img src="assets/library.png" alt="The Zwisper library of past meetings" loading="lazy" decoding="async" width="848" height="1000"></picture></div></div>
         </article>
 
         <article class="card reveal">
