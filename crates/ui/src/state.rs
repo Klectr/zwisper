@@ -19,6 +19,9 @@ pub trait UiPlatform: Send + Sync {
         Ok(())
     }
     fn permissions(&self) -> Arc<dyn zwisper_core::ports::Permissions>;
+    /// Strip OS window chrome (frame, corner mask, shadow) from an overlay
+    /// window so only its own rounded content shows, e.g. the dictation pill.
+    fn make_frameless(&self, _window: &gpui::Window) {}
 }
 
 #[derive(Clone)]

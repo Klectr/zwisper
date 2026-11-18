@@ -17,18 +17,20 @@ pub struct Pill {
 
 pub const W: f32 = 420.;
 pub const H: f32 = 110.;
+/// Transparent margin around the pill so its shadow isn't clipped by the window.
+const MARGIN: f32 = 16.;
 
 pub fn open(cx: &mut App) -> Option<WindowHandle<Pill>> {
     let display = cx.primary_display();
     let area = display.as_ref().map(|d| d.bounds()).unwrap_or(Bounds::new(point(px(0.), px(0.)), size(px(1440.), px(900.))));
     let origin = point(
-        area.origin.x + (area.size.width - px(W)) / 2.,
-        area.origin.y + area.size.height - px(H) - px(96.),
+        area.origin.x + (area.size.width - px(W)) / 2. - px(MARGIN),
+        area.origin.y + area.size.height - px(H) - px(96.) - px(MARGIN),
     );
     let st = state(cx);
     cx.open_window(
         WindowOptions {
-            window_bounds: Some(WindowBounds::Windowed(Bounds::new(origin, size(px(W), px(H))))),
+            window_bounds: Some(WindowBounds::Windowed(Bounds::new(origin, size(px(W + 2. * MARGIN), px(H + 2. * MARGIN))))),
             titlebar: None,
             focus: false,
             show: true,
@@ -40,7 +42,8 @@ pub fn open(cx: &mut App) -> Option<WindowHandle<Pill>> {
             window_background: WindowBackgroundAppearance::Transparent,
             ..Default::default()
         },
-        |_, cx| {
+        |window, cx| {
+            st.read(cx).platform.make_frameless(window);
             cx.new(|cx| {
                 cx.observe(&st, |_, _, cx| cx.notify()).detach();
                 Pill { state: st }
@@ -95,7 +98,7 @@ impl Render for Pill {
 
         div()
             .size_full()
-            .p(px(1.))
+            .p(px(MARGIN))
             .child(
                 div()
                     .size_full()

@@ -45,8 +45,8 @@ pub use login::{launch_at_login_enabled, open_login_items_settings, set_launch_a
 pub use permissions::{accessibility_trusted, mark_system_audio_granted, settings_url, MacPermissions};
 #[cfg(target_os = "macos")]
 pub use window::{
-    activate_app, make_window_non_activating_panel, order_front_without_activating,
-    set_activation_policy_accessory,
+    activate_app, make_view_window_frameless, make_view_window_frameless_later, make_window_non_activating_panel,
+    order_front_without_activating, set_activation_policy_accessory,
 };
 
 #[cfg(all(test, target_os = "macos"))]

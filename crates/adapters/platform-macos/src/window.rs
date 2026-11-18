@@ -124,6 +124,61 @@ pub unsafe fn make_window_non_activating_panel(ns_window: *mut c_void) -> Result
     Ok(())
 }
 
+/// Make the window that hosts `ns_view` frameless: no title-bar style (which
+/// macOS draws with its own rounded corners and hairline), no system shadow,
+/// and a clear background, so only the content's own rounded shape shows.
+/// GPUI always sets `NSTitledWindowMask`, even with `titlebar: None`.
+///
+/// # Safety
+/// `ns_view` must be a valid, live `NSView*` that is in a window.
+pub unsafe fn make_view_window_frameless(ns_view: *mut c_void) -> Result<()> {
+    let _mtm = main_thread()?;
+    let view = (ns_view as *const AnyObject)
+        .as_ref()
+        .ok_or_else(|| Error::InvalidState("null NSView".into()))?;
+    let window: *const NSWindow = msg_send![view, window];
+    let window = window.as_ref().ok_or_else(|| Error::InvalidState("view has no window".into()))?;
+
+    // Keep the non-activating bit GPUI sets on PopUp panels.
+    let keep = window.styleMask() & NSWindowStyleMask::NonactivatingPanel;
+    window.setStyleMask(NSWindowStyleMask::Borderless | NSWindowStyleMask::FullSizeContentView | keep);
+    window.setHasShadow(false);
+    window.setOpaque(false);
+    let clear: *mut AnyObject = msg_send![objc2::class!(NSColor), clearColor];
+    let _: () = msg_send![window, setBackgroundColor: clear];
+    Ok(())
+}
+
+/// [`make_view_window_frameless`] on a later main-loop turn. Use this from
+/// inside a toolkit callback (e.g. GPUI's window-build closure): changing the
+/// style mask makes AppKit call straight back into the toolkit, which would
+/// re-enter it while it's still borrowed ("RefCell already borrowed").
+///
+/// # Safety
+/// `ns_view` must be a valid, live `NSView*`. It's retained until the work runs.
+pub unsafe fn make_view_window_frameless_later(ns_view: *mut c_void) -> Result<()> {
+    let _mtm = main_thread()?;
+    let view = Retained::retain(ns_view as *mut AnyObject)
+        .ok_or_else(|| Error::InvalidState("null NSView".into()))?;
+
+    extern "C" fn work(ctx: *mut c_void) {
+        // SAFETY: `ctx` is the `Retained` leaked below; dispatched to the main queue.
+        let view = unsafe { Retained::from_raw(ctx as *mut AnyObject) }.expect("non-null");
+        if let Err(e) = unsafe { make_view_window_frameless(Retained::as_ptr(&view) as *mut c_void) } {
+            tracing::warn!(%e, "could not make window frameless");
+        }
+    }
+    #[allow(non_upper_case_globals)]
+    extern "C" {
+        static _dispatch_main_q: c_void;
+        fn dispatch_async_f(queue: *const c_void, ctx: *mut c_void, work: extern "C" fn(*mut c_void));
+    }
+    // SAFETY: `dispatch_get_main_queue()` is `&_dispatch_main_q`; ownership of
+    // the retained view passes to `work`.
+    dispatch_async_f(&_dispatch_main_q, Retained::into_raw(view) as *mut c_void, work);
+    Ok(())
+}
+
 /// Show a window without making it key and without activating the app.
 ///
 /// # Safety

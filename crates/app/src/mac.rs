@@ -26,6 +26,20 @@ impl zwisper_ui::UiPlatform for MacUi {
     fn permissions(&self) -> Arc<dyn Permissions> {
         self.perms.clone()
     }
+    fn make_frameless(&self, window: &gpui::Window) {
+        make_frameless(window)
+    }
+}
+
+pub fn make_frameless(window: &gpui::Window) {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    let Ok(handle) = HasWindowHandle::window_handle(window) else { return };
+    if let RawWindowHandle::AppKit(h) = handle.as_raw() {
+        // SAFETY: GPUI's AppKit handle is its live NSView, and we're on the main thread.
+        if let Err(e) = unsafe { platform::make_view_window_frameless_later(h.ns_view.as_ptr()) } {
+            tracing::warn!(%e, "could not make window frameless");
+        }
+    }
 }
 
 pub fn compose(cx: &mut App, data: &Path) -> (Core, Arc<dyn zwisper_ui::UiPlatform>) {

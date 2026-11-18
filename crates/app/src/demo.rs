@@ -116,4 +116,9 @@ impl zwisper_ui::UiPlatform for DemoPlatform {
     fn permissions(&self) -> Arc<dyn Permissions> {
         Arc::new(AllGranted)
     }
+    // Cosmetic only, so the demo pill looks like the real one.
+    #[cfg(target_os = "macos")]
+    fn make_frameless(&self, window: &gpui::Window) {
+        crate::mac::make_frameless(window)
+    }
 }
