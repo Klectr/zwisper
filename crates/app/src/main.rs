@@ -10,7 +10,11 @@
 
 mod demo;
 #[cfg(target_os = "macos")]
+mod engines;
+#[cfg(target_os = "macos")]
 mod mac;
+#[cfg(target_os = "macos")]
+mod tray;
 
 use gpui::{App, Application};
 use std::sync::Arc;

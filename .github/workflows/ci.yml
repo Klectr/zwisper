@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  core:
+    name: Core + adapters (Linux)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: System libraries for GPUI
+        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libfontconfig1-dev libvulkan-dev libasound2-dev libx11-xcb-dev
+      - name: Tests (no models, no OS integration)
+        run: cargo test -p zwisper-core -p zwisper-fakes -p zwisper-templates -p zwisper-store-fs -p zwisper-models-http -p zwisper-audio-macos -p zwisper-platform-macos -p zwisper-ui
+      - name: Demo app builds
+        run: cargo build -p zwisper
+
+  macos:
+    name: macOS app (Apple Silicon)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo build --release -p zwisper
+      - name: Unit tests
+        run: cargo test -p zwisper-core -p zwisper-audio-macos -p zwisper-platform-macos -p zwisper-sherpa -p zwisper-llama
+      - name: Bundle (unsigned)
+        run: ./scripts/bundle-macos.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Zwisper-macOS-unsigned
+          path: target/release/bundle/Zwisper.app

@@ -22,3 +22,16 @@ chrono.workspace = true
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 directories = "5"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+zwisper-sherpa = { path = "../adapters/sherpa" }
+zwisper-llama = { path = "../adapters/llama" }
+zwisper-audio-macos = { path = "../adapters/audio-macos" }
+zwisper-platform-macos = { path = "../adapters/platform-macos" }
+tray-icon = "0.26"
+async-channel = "2"
+
+[package.metadata.bundle]
+name = "Zwisper"
+identifier = "com.zwisper.app"
+osx_minimum_system_version = "14.4"

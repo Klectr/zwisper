@@ -21,7 +21,7 @@ use llama_cpp_2::context::params::{KvCacheType, LlamaContextParams};
 use llama_cpp_2::llama_backend::LlamaBackend;
 use llama_cpp_2::llama_batch::LlamaBatch;
 use llama_cpp_2::model::params::LlamaModelParams;
-use llama_cpp_2::model::{AddBos, LlamaModel};
+use llama_cpp_2::model::LlamaModel;
 use llama_cpp_2::sampling::LlamaSampler;
 use llama_cpp_2::token::LlamaToken;
 use std::num::NonZeroU32;
@@ -222,10 +222,9 @@ impl LlamaNoteWriter {
         self.last_stats
     }
 
+    /// `special`: parse control tokens such as `<|im_start|>` (only for our own template).
     fn tokenize(&self, text: &str, special: bool) -> Vec<LlamaToken> {
-        self.model
-            .str_to_token(text, if special { AddBos::Never } else { AddBos::Never })
-            .unwrap_or_default()
+        self.model.vocab().tokenize(text.as_bytes(), false, special)
     }
 
     fn sampler(&self, temperature: f32) -> LlamaSampler {
@@ -271,7 +270,7 @@ impl NoteWriter for LlamaNoteWriter {
         let backend = backend()?;
         let text = chatml(&prompt.system, &prompt.user, self.variant.disable_thinking());
         // The template's special tokens (<|im_start|> …) must be parsed as such.
-        let tokens = self.model.str_to_token(&text, AddBos::Never).map_err(engine("tokenize"))?;
+        let tokens = self.tokenize(&text, true);
         let max_ctx = self.variant.context_tokens().min(self.model.n_ctx_train().max(512));
         if tokens.len() + 16 >= max_ctx as usize {
             return Err(Error::Engine(format!(
@@ -289,7 +288,9 @@ impl NoteWriter for LlamaNoteWriter {
             .with_n_ubatch(n_batch.min(512))
             .with_n_threads(n_threads())
             .with_n_threads_batch(n_threads())
-            .with_flash_attention_policy(llama_cpp_2::context::params::LLAMA_FLASH_ATTN_TYPE_AUTO)
+            // LLAMA_FLASH_ATTN_TYPE_AUTO: on where the backend supports it (needed for a
+            // quantized V cache).
+            .with_flash_attention_policy(-1)
             .with_type_k(KvCacheType::Q8_0)
             .with_type_v(KvCacheType::Q8_0);
         let mut ctx = self.model.new_context(backend, ctx_params).map_err(engine("create context"))?;
@@ -309,8 +310,9 @@ impl NoteWriter for LlamaNoteWriter {
         }
         let prompt_secs = t0.elapsed().as_secs_f64();
 
+        // Prompt tokens are deliberately not fed to the repetition penalty: notes should
+        // reuse the transcript's names and terms.
         let mut sampler = self.sampler(prompt.temperature);
-        sampler.accept_many(tokens.iter());
         let vocab = self.model.vocab();
         let mut raw = String::new();
         let mut utf8 = Utf8Stream::default();
@@ -321,8 +323,8 @@ impl NoteWriter for LlamaNoteWriter {
         let t1 = Instant::now();
         while generated < max_new {
             cancel.check()?;
+            // `sample` also accepts the token into the sampler chain.
             let tok = sampler.sample(&ctx, batch.n_tokens() - 1);
-            sampler.accept(tok);
             generated += 1;
             if vocab.is_eog(tok) {
                 break;
@@ -343,8 +345,9 @@ impl NoteWriter for LlamaNoteWriter {
         }
         utf8.finish(&mut raw);
         let vis = visible_text(&raw, true);
-        // Text held back while it could have become "<think>" (or a trailing partial char).
-        if vis.len() > emitted && vis.starts_with(&visible_text(&raw, false)[..emitted]) {
+        // Text held back while it could still have become "<think>". `visible_text` only ever
+        // grows by appending, so `vis[..emitted]` is exactly what was streamed.
+        if vis.len() > emitted {
             on_delta(&vis[emitted..]);
         }
         self.last_stats = GenerationStats {
