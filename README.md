@@ -5,6 +5,8 @@
 **Calm, local-only dictation and meeting notes for macOS.**
 Press a key, speak, and your words appear wherever you're typing. Record a meeting and get clean notes. Nothing leaves your Mac.
 
+<sub>A <a href="https://klectr.dev/">Klectr</a> app · part of the Klectr Z-suite · <a href="https://zwisper.klectr.dev/">zwisper.klectr.dev</a></sub>
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/meeting-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/meeting-light.png">
@@ -189,6 +191,21 @@ Zwisper is an early MVP in active development.
 - Meetings have no audio playback.
 
 Items still to check on real hardware are marked `VERIFY ON MAC` in the code and listed in [HANDOFF.md](docs/HANDOFF.md).
+
+## Part of the Klectr Z-suite
+
+Zwisper is built and maintained by [Klectr](https://klectr.dev/), an independent software studio. It's one of the Z apps: small tools that each do one job well.
+
+| App | What it does |
+| --- | --- |
+| **Zwisper** | Dictation and meeting notes, local on your Mac *(you are here)* |
+| [Zotebook](https://zotebook.klectr.dev/) | A plain editor for folders of Markdown files |
+| [Zlab](https://zlab.klectr.dev/) | Think on an infinite canvas |
+| [Zimer](https://zimer.klectr.dev/) | A time tracker that turns your hours into an invoice |
+| [Zlorb](https://zlorb.klectr.dev/) | Git push is the deploy |
+| [Zandbox](https://zandbox.klectr.dev/) | A component lab for Bun + HTMX projects |
+
+See everything Klectr makes at [klectr.dev](https://klectr.dev/).
 
 ## Credits
 

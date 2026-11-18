@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Zwisper · Free dictation &amp; meeting notes, local on your Mac</title>
-<meta name="description" content="Press ⌥Space, talk, and your words appear wherever you type. Meetings become clean notes. Free, open source, and nothing ever leaves your Mac.">
+<meta name="description" content="Press ⌥Space, talk, and your words appear wherever you type. Meetings become clean notes. Free, open source, and nothing ever leaves your Mac. Part of the Klectr Z-suite.">
 <meta name="keywords" content="dictation, speech to text, transcription, meeting notes, macOS, local, offline, privacy, free, open source">
 <meta name="author" content="Klectr">
 <meta name="robots" content="index, follow, max-image-preview:large">
@@ -13,7 +13,7 @@
 
 <!-- Open Graph (Facebook, LinkedIn, Slack, Discord, iMessage…) -->
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Zwisper">
+<meta property="og:site_name" content="Zwisper by Klectr">
 <meta property="og:locale" content="en_US">
 <meta property="og:url" content="https://zwisper.klectr.dev/">
 <meta property="og:title" content="Zwisper: free dictation and meeting notes that never leave your Mac">
@@ -60,6 +60,7 @@
   "isAccessibleForFree": true,
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   "author": { "@type": "Organization", "name": "Klectr", "url": "https://klectr.dev/" },
+  "publisher": { "@type": "Organization", "name": "Klectr", "url": "https://klectr.dev/" },
   "sameAs": ["https://github.com/Klectr/zwisper"]
 }
 </script>
@@ -231,6 +232,22 @@
   .note { margin-top: 14px; font-size: 13.5px; color: var(--overlay0); }
   .note kbd { font-size: 11px; padding: 3px 6px; border-bottom-width: 2px; }
 
+  /* Klectr Z-suite */
+  .suite { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .app {
+    display: flex; flex-direction: column; gap: 6px; padding: 20px 20px 22px;
+    background: linear-gradient(180deg, rgba(30,30,46,.75), var(--card));
+    border: 1px solid var(--line); border-radius: 14px; transition: border-color .15s, transform .15s;
+  }
+  .app:hover { border-color: rgba(203,166,247,.35); transform: translateY(-2px); }
+  .app b { font: 600 16px/1.3 var(--display); color: var(--text); letter-spacing: -0.01em; }
+  .app span { font-size: 14px; color: var(--subtext0); }
+  .app small { margin-top: auto; padding-top: 10px; font: 12.5px/1 var(--mono); color: var(--overlay0); }
+  .app.here { border-color: rgba(203,166,247,.30); background: linear-gradient(180deg, rgba(203,166,247,.08), var(--card)); }
+  .suite-more { text-align: center; margin-top: 26px; font-size: 14.5px; color: var(--subtext0); }
+  .suite-more a { color: var(--lavender); }
+  .suite-more a:hover { color: var(--text); }
+
   /* Final CTA */
   .final { position: relative; text-align: center; padding: 150px 0 140px; margin-top: 60px; isolation: isolate; }
   .final::before {
@@ -251,7 +268,7 @@
   .reveal.in { opacity: 1; transform: none; }
 
   @media (max-width: 820px) {
-    .grid { grid-template-columns: 1fr; }
+    .grid, .suite { grid-template-columns: 1fr; }
     .card { min-height: 0; padding: 24px 22px 0; }
     .hero { padding-top: 120px; }
     .stage .pill { right: 50%; transform: translateX(50%); bottom: -14%; width: 72%; animation: none; }
@@ -299,7 +316,7 @@
 <main id="top">
   <div class="hero">
     <div class="wrap hero-copy">
-      <span class="eyebrow">Free · Open source · Local only</span>
+      <span class="eyebrow">A Klectr app · Free · Open source · Local only</span>
       <h1>Talk, and it types.<br><span class="soft">Free, and only on your Mac.</span></h1>
       <p class="lede">Press <kbd>⌥</kbd> <kbd>Space</kbd>, speak, and your words appear wherever you're typing. Record a meeting and get clean notes. No account, no cloud, and no Pro tier waiting to lock you out.</p>
       <div class="cta" id="hero-cta">
@@ -404,6 +421,25 @@
     </div>
   </section>
 
+  <section id="klectr">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">Made by Klectr</span>
+        <h2 style="margin-top:18px">Part of the Klectr Z-suite.<br><span class="soft">Small tools that do one job well.</span></h2>
+        <p>Zwisper is one of the Z apps that <a href="https://klectr.dev/" style="color:var(--lavender)">Klectr</a>, an independent software studio, builds and maintains. Each one is plain, focused, and yours to keep.</p>
+      </div>
+      <div class="suite reveal">
+        <a class="app here" href="#top"><b>Zwisper</b><span>Dictation and meeting notes, local on your Mac.</span><small>you are here</small></a>
+        <a class="app" href="https://zotebook.klectr.dev/"><b>Zotebook</b><span>A plain editor for folders of Markdown files.</span><small>zotebook.klectr.dev</small></a>
+        <a class="app" href="https://zlab.klectr.dev/"><b>Zlab</b><span>Think on an infinite canvas.</span><small>zlab.klectr.dev</small></a>
+        <a class="app" href="https://zimer.klectr.dev/"><b>Zimer</b><span>A time tracker that turns your hours into an invoice.</span><small>zimer.klectr.dev</small></a>
+        <a class="app" href="https://zlorb.klectr.dev/"><b>Zlorb</b><span>Git push is the deploy.</span><small>zlorb.klectr.dev</small></a>
+        <a class="app" href="https://zandbox.klectr.dev/"><b>Zandbox</b><span>A component lab for Bun + HTMX projects.</span><small>zandbox.klectr.dev</small></a>
+      </div>
+      <p class="suite-more reveal">See everything Klectr makes at <a href="https://klectr.dev/">klectr.dev</a></p>
+    </div>
+  </section>
+
   <div class="final">
     <div class="wrap reveal">
       <h2>Free. For everyone.</h2>
@@ -418,11 +454,12 @@
 
 <footer>
   <div class="wrap">
-    <span>Zwisper by <a href="https://github.com/Klectr">Klectr</a> · <a href="https://github.com/Klectr/zwisper/blob/main/LICENSE">GPL-3.0</a></span>
+    <span>Zwisper is part of the <a href="https://klectr.dev/">Klectr</a> Z-suite · <a href="https://github.com/Klectr/zwisper/blob/main/LICENSE">GPL-3.0</a></span>
     <nav>
       <a href="https://github.com/Klectr/zwisper">GitHub</a>
       <a href="https://github.com/Klectr/zwisper/releases">Releases</a>
       <a href="https://github.com/Klectr/zwisper#readme">README</a>
+      <a href="https://klectr.dev/">Klectr</a>
     </nav>
   </div>
 </footer>
