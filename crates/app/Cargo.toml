@@ -1,0 +1,24 @@
+[package]
+name = "zwisper"
+description = "Zwisper app: the composition root. The only crate that names concrete adapters."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+default-run = "zwisper"
+
+[[bin]]
+name = "zwisper"
+path = "src/main.rs"
+
+[dependencies]
+zwisper-core.workspace = true
+zwisper-ui = { path = "../ui" }
+zwisper-fakes.workspace = true
+zwisper-store-fs = { path = "../adapters/store-fs" }
+zwisper-templates = { path = "../adapters/templates" }
+zwisper-models-http = { path = "../adapters/models-http" }
+gpui = "0.2.2"
+chrono.workspace = true
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+directories = "5"

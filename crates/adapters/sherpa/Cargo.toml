@@ -1,0 +1,15 @@
+[package]
+name = "zwisper-sherpa"
+description = "Audio engines via sherpa-onnx: Parakeet TDT transcriber, Silero VAD, pyannote+WeSpeaker diarizer."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+zwisper-core.workspace = true
+sherpa-onnx = "2.0.1"
+tracing.workspace = true
+
+[dev-dependencies]
+zwisper-models-http = { path = "../models-http" }
+hound = "3.5"

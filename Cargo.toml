@@ -6,6 +6,12 @@ members = [
     "crates/adapters/templates",
     "crates/adapters/store-fs",
     "crates/adapters/models-http",
+    "crates/adapters/sherpa",
+    "crates/adapters/llama",
+    "crates/adapters/audio-macos",
+    "crates/adapters/platform-macos",
+    "crates/ui",
+    "crates/app",
 ]
 
 [workspace.package]
@@ -27,6 +33,10 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "serd
 ulid = { version = "1", features = ["serde"] }
 strsim = "0.11"
 tracing = "0.1"
+
+# xattr 0.2.3 (pulled in by gpui's http client) doesn't build against newer libc on Linux.
+[patch.crates-io]
+xattr = { path = "third_party/xattr" }
 
 [profile.release]
 lto = "fat"

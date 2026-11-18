@@ -1,0 +1,22 @@
+[package]
+name = "zwisper-llama"
+description = "NoteWriter via llama.cpp (llama-cpp-2): the Qwen3 notes models."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+zwisper-core.workspace = true
+# Statically builds llama.cpp from source with CMake (no prebuilt download).
+llama-cpp-2 = { version = "0.1.161", default-features = false }
+tracing.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+llama-cpp-2 = { version = "0.1.161", default-features = false, features = ["metal"] }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+llama-cpp-2 = { version = "0.1.161", default-features = false, features = ["openmp"] }
+
+[dev-dependencies]
+zwisper-models-http = { path = "../models-http" }
+zwisper-templates = { path = "../templates" }

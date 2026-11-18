@@ -92,6 +92,14 @@ impl Core {
         self.meeting.active_id()
     }
 
+    pub fn microphones(&self) -> Vec<String> {
+        self.ctx.ports.audio.list_microphones()
+    }
+
+    pub fn library_root(&self) -> Option<std::path::PathBuf> {
+        self.ctx.ports.settings.load().library_dir
+    }
+
     pub fn session_folder(&self, id: SessionId) -> Option<std::path::PathBuf> {
         self.ctx.ports.repo.folder(id)
     }
