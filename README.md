@@ -68,6 +68,8 @@ cargo app
 
 macOS ties permissions to the app's signature, so run the bundled `.app` when testing microphone, Accessibility and system-audio access. A plain `cargo run` binary may be asked again after each rebuild.
 
+Local bundles are signed with a self-signed "Zwisper Local Dev" certificate that `scripts/dev-signing-identity.sh` creates on first use, in its own keychain (`~/Library/Keychains/zwisper-dev.keychain-db`). Because the signature stays the same, permissions you grant survive rebuilds. Delete that keychain file to start over. CI builds are ad-hoc signed.
+
 ### Demo mode (any OS)
 
 This mode uses scripted engines, fake audio and seeded data. It's handy for UI work:

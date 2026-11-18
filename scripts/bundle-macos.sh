@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Build Zwisper.app and Zwisper.dmg from a release build, then open the DMG's
 # drag-to-Applications window.
-#   ./scripts/bundle-macos.sh                 unsigned (local testing; ad-hoc signed)
+#   ./scripts/bundle-macos.sh                 local build, signed with a stable self-signed
+#                                             identity so macOS permissions survive rebuilds
+#                                             (see dev-signing-identity.sh; ad-hoc on CI)
 #   SIGN_ID="Developer ID Application: …" ./scripts/bundle-macos.sh   signed + hardened runtime
 #   NO_OPEN=1 ./scripts/bundle-macos.sh       build only, don't mount the DMG (also skipped when $CI is set)
 set -euo pipefail
@@ -35,8 +37,26 @@ if [ -n "${SIGN_ID:-}" ]; then
   codesign --force --options runtime --timestamp --entitlements packaging/macos/entitlements.plist \
     --sign "$SIGN_ID" "$APP/Contents/Frameworks/"* "$APP" 2>/dev/null || \
   codesign --force --options runtime --timestamp --entitlements packaging/macos/entitlements.plist --sign "$SIGN_ID" "$APP"
+elif [ -z "${CI:-}" ] && KC=$(./scripts/dev-signing-identity.sh) \
+    && HASH=$(security find-certificate -c "Zwisper Local Dev" -Z "$KC" | awk '/SHA-1/ {print $3}') \
+    && [ -n "$HASH" ]; then
+  # Stable self-signed identity: permission grants survive rebuilds.
+  # codesign only finds the identity when its keychain is on the search list,
+  # so add it for this one call and put the user's list back exactly.
+  ORIG_KCS=()
+  while IFS= read -r k; do
+    k="${k#"${k%%[![:space:]]*}"}"; k="${k%\"}"; k="${k#\"}"
+    [ -n "$k" ] && ORIG_KCS+=("$k")
+  done < <(security list-keychains -d user)
+  security list-keychains -d user -s "${ORIG_KCS[@]}" "$KC"
+  set +e
+  codesign --force --deep --keychain "$KC" --sign "$HASH" "$APP"
+  rc=$?
+  set -e
+  security list-keychains -d user -s "${ORIG_KCS[@]}"
+  [ $rc -eq 0 ] || { echo "error: signing with the local identity failed" >&2; exit $rc; }
 else
-  # Ad-hoc signature so macOS remembers permissions between launches of this build.
+  # CI, or no local identity: ad-hoc. Permissions reset on every rebuild.
   codesign --force --deep --sign - "$APP"
 fi
 echo "Built $APP"
