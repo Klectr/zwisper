@@ -1,24 +1,52 @@
+<div align="center">
+
 # Zwisper
 
-A small, calm, local-first dictation and meeting-notes app for macOS.
+**Calm, local-first dictation and meeting notes for macOS.**
+Press a key, speak, and your words appear wherever you're typing. Record a meeting and get clean notes. Nothing leaves your Mac.
 
-- **Dictate anywhere.** Press <kbd>⌥ Space</kbd>, speak, and the text is pasted where you're typing. Hold the key to talk instead.
-- **Record meetings.** A quiet window with the live transcript on the right and your own notes on the left.
-- **Know who said what.** Remote voices are separated into speakers. Rename them and the change applies everywhere.
-- **Notes in one click.** Summary, Action items, To-do list, 1:1, or Follow-up email, written by a local model that treats your own notes as facts.
-- **Nothing leaves your Mac.** Models download once; audio is never uploaded.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/meeting-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/meeting-light.png">
+  <img alt="A finished meeting: notes with a summary, decisions and action items on the left, the speaker-labelled transcript on the right" src="docs/screenshots/meeting-dark.png" width="820">
+</picture>
 
-![Meeting window](docs/screenshots/meeting.png)
+</div>
 
-| Dictation | Library | Settings |
-|---|---|---|
-| ![](docs/screenshots/pill.png) | ![](docs/screenshots/library.png) | ![](docs/screenshots/settings.png) |
+## What it does
 
-_The screenshots come from `--demo` mode rendered on Linux (hence the window-manager title bars). On macOS the dictation pill is a borderless floating panel._
+### Dictate anywhere
+
+<img alt="The dictation pill: a waveform above Stop and Cancel hints" src="docs/screenshots/pill.png" width="452" align="right">
+
+- Press <kbd>⌥</kbd> <kbd>Space</kbd>, speak, press it again. The text is pasted into whatever app you're typing in. Hold the key instead for push-to-talk.
+- <kbd>Esc</kbd> cancels. It's only claimed while you're dictating, so other apps keep their Esc.
+- **Other audio is muffled while you talk**, like a neighbour's TV through the wall: you can tell something's playing, but can't follow the words. You can switch it to plain volume lowering, or turn it off.
+- If macOS won't let Zwisper paste, the text goes to the clipboard and into your history instead, so nothing you said is lost.
+
+<br clear="right">
+
+### Meetings
+
+- A quiet window with your own notes on the left and a live transcript on the right.
+- Your microphone and the call's audio are recorded as separate tracks, so your own voice is always "You". The other voices are separated into speakers you can rename.
+- When the meeting ends, one click writes notes from a fixed set of templates: **Summary**, **Action items**, **To-do list**, **1:1** and **Follow-up email**. Your own notes are treated as facts.
+
+### Everything stays on your Mac
+
+Every model runs locally. Models download once, are checked against SHA-256 hashes, and audio is never uploaded. There's no account, no cloud and no API keys.
+
+## Screenshots
+
+| Library | Settings | First run |
+|:---:|:---:|:---:|
+| <img alt="Library of past meetings" src="docs/screenshots/library.png" width="260"> | <picture><source media="(prefers-color-scheme: light)" srcset="docs/screenshots/settings-light.png"><img alt="Settings" src="docs/screenshots/settings-dark.png" width="240"></picture> | <img alt="Onboarding" src="docs/screenshots/onboarding.png" width="260"> |
+
+The theme is [Catppuccin](https://catppuccin.com): Mocha in dark mode, Latte in light mode, following your macOS appearance.
 
 ## Models
 
-The app ships with no models. Each pack downloads the first time it's needed and is checked against a SHA-256 hash.
+The app ships with no models. Each pack downloads the first time it's needed.
 
 | Pack | Standard | Lite | Runtime |
 |---|---|---|---|
@@ -26,53 +54,35 @@ The app ships with no models. Each pack downloads the first time it's needed and
 | Speakers | pyannote segmentation-3.0 + WeSpeaker ResNet34, 32 MB | same | sherpa-onnx |
 | Notes | Qwen3-4B-Instruct-2507 Q4_K_M, 2.5 GB | Qwen3-1.7B Q4_K_M, 1.1 GB | llama.cpp (Metal) |
 
-Macs with 16 GB of memory or more get Standard; smaller Macs get Lite. Settings has one switch to change it. The model list is fixed in [`manifest.rs`](crates/adapters/models-http/src/manifest.rs).
+Macs with 16 GB of memory or more get Standard; smaller Macs get Lite. That's the only model choice, and you can change it in Settings. The list is fixed in [`manifest.rs`](crates/adapters/models-http/src/manifest.rs).
 
-## Architecture
+## Install from source
 
-Ports and adapters. Every engine, OS service and storage mechanism sits behind a trait in `zwisper-core`. Concrete strategies live in `crates/adapters/*` and are picked in exactly one place, the composition root in `crates/app`. The UI only sends `Command`s and renders `Event`s. Engines are hot-swappable at runtime. A test enforces the dependency rule.
-
-```
-crates/
-├── core/              domain, ports, services, command/event bus, decorators, contract tests
-├── ui/                GPUI views (depends on core only)
-├── app/               composition root: demo (any OS) and macOS
-└── adapters/
-    ├── sherpa/        Parakeet transcriber, Silero VAD, speaker diarizer
-    ├── llama/         Qwen note writer
-    ├── templates/     the five note templates + output validators
-    ├── store-fs/      session folders, WAV tracks, dictation log, settings
-    ├── models-http/   curated manifest, resumable downloads, SHA-256
-    ├── audio-macos/   cpal microphone, Core Audio process tap
-    ├── platform-macos/ hotkeys, paste/typing injection, permissions, login item, window helpers
-    └── fakes/         test doubles for every port
-```
-
-The full design is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Current status and next steps: [docs/HANDOFF.md](docs/HANDOFF.md).
-
-## Build and run (macOS 14.4+, Apple Silicon)
-
-Install Rust (`rustup`) and Xcode Command Line Tools first.
-
-```bash
-cargo run --release -p zwisper
-```
-
-To build the app (ad-hoc signed, for local use):
+You need macOS 14.4 or later on Apple Silicon, [Rust](https://rustup.rs), and the Xcode Command Line Tools. Full Xcode is optional.
 
 ```bash
 cargo app
 ```
 
-(`cargo app` runs `scripts/bundle-macos.sh`.) This writes `target/release/bundle/Zwisper.app` and `Zwisper.dmg`, then opens the DMG so you can drag Zwisper into Applications. Set `NO_OPEN=1` to skip opening it.
+`cargo app` builds a release version, packages `Zwisper.app` into `target/release/bundle/Zwisper.dmg`, and opens the disk image so you can drag Zwisper into Applications.
 
-macOS ties permissions to the app's signature, so run the bundled `.app` when testing microphone, Accessibility and system-audio access. A plain `cargo run` binary may be asked again after each rebuild.
+### Permissions
 
-Local bundles are signed with a self-signed "Zwisper Local Dev" certificate that `scripts/dev-signing-identity.sh` creates on first use, in its own keychain (`~/Library/Keychains/zwisper-dev.keychain-db`). Because the signature stays the same, permissions you grant survive rebuilds. Delete that keychain file to start over. CI builds are ad-hoc signed.
+macOS asks for these the first time they're needed. The onboarding screen walks you through them.
 
-### Demo mode (any OS)
+| Permission | Why |
+|---|---|
+| Microphone | To hear you |
+| Accessibility | To paste text where you're typing |
+| System audio | To transcribe the other side of calls, and to muffle other audio while you dictate |
 
-This mode uses scripted engines, fake audio and seeded data. It's handy for UI work:
+Local builds are signed with a self-signed "Zwisper Local Dev" certificate. [`scripts/dev-signing-identity.sh`](scripts/dev-signing-identity.sh) creates it on first use, in its own keychain at `~/Library/Keychains/zwisper-dev.keychain-db`. Because the signature stays the same between builds, permissions you grant survive rebuilds. Delete that keychain file to start over.
+
+## Development
+
+### Demo mode
+
+Demo mode runs the full UI with scripted engines, fake audio and sample meetings. It needs no models and no permissions:
 
 ```bash
 cargo run -p zwisper -- --demo --open meeting
@@ -80,35 +90,75 @@ cargo run -p zwisper -- --demo --open meeting
 
 `--open` also accepts `library`, `settings`, `onboarding`, `live` and `pill`. Set `ZWISPER_THEME=dark` or `ZWISPER_THEME=light` to force a theme.
 
-## Tests
+### Tests
+
+These are fast and need no models or OS access:
 
 ```bash
-cargo test -p zwisper-core -p zwisper-templates -p zwisper-store-fs -p zwisper-models-http
+cargo test -p zwisper-core -p zwisper-templates -p zwisper-store-fs -p zwisper-ui -p zwisper-audio-macos
 ```
 
-The real-model tests download the models first, so they're opt-in:
+These download the real models first, about 4 GB:
 
 ```bash
 cargo test -p zwisper-sherpa -p zwisper-llama -- --ignored
 ```
 
+### Handy tools
+
+- **Logs:** written to `~/Library/Logs/Zwisper/zwisper.log`, and they also show up in Console.app.
+- **Previewing the muffle effect:** run a WAV file through the dictation muffle without opening the app. The file must be 32-bit float; `afconvert -f WAVE -d LEF32@48000` converts one.
+
+  ```bash
+  cargo run -p zwisper-audio-macos --example muffle_preview -- in.wav out.wav
+  ```
+
+## Architecture
+
+Zwisper uses ports and adapters:
+- Every engine, OS service and storage mechanism sits behind a trait in `zwisper-core`.
+- Concrete implementations live in `crates/adapters/*`, and are chosen in exactly one place, the composition root in `crates/app`.
+- The UI only sends `Command`s and renders `Event`s.
+- Engines can be swapped at runtime.
+
+A test enforces this dependency rule.
+
+```
+crates/
+├── core/               domain, ports, services, command/event bus, decorators, contract tests
+├── ui/                 GPUI views (depends on core only), Catppuccin theme
+├── app/                composition root: demo (any OS) and macOS
+└── adapters/
+    ├── sherpa/         Parakeet transcriber, Silero VAD, speaker diarizer
+    ├── llama/          Qwen note writer
+    ├── templates/      the five note templates + output validators
+    ├── store-fs/       session folders, WAV tracks, dictation log, settings
+    ├── models-http/    curated manifest, resumable downloads, SHA-256
+    ├── audio-macos/    microphone, Core Audio process tap, muffle/ducking
+    ├── platform-macos/ hotkeys, paste/typing injection, permissions, login item, window helpers
+    └── fakes/          test doubles for every port
+xtask/                  `cargo app`
+```
+
+The UI is built with [GPUI](https://github.com/zed-industries/zed/tree/main/crates/gpui), Zed's GPU-accelerated UI framework, through [GPUI Kit](https://gpui-kit.com). Settings uses GPUI Kit's components. The dictation pill and the other windows are custom views styled to match.
+
+The full design is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Current status and next steps are in [docs/HANDOFF.md](docs/HANDOFF.md).
+
 ## Status
 
-This is an MVP.
-
-**Verified:**
-- The core and all its services pass end to end on fakes.
-- Storage, templates and the model downloader are tested.
-- The UI renders in demo mode.
-
-**Written but not yet run on a Mac:** the macOS adapters, which are type-checked only, and the full macOS build. See the `VERIFY ON MAC` comments in `crates/adapters/*-macos`.
+Zwisper is an early MVP in active development.
 
 **Known gaps:**
-- Audio is stored as WAV (FLAC is planned).
-- There's no shortcut editor; shortcuts can be changed in `config.toml`.
-- There's no audio playback.
-- Esc-to-cancel works only via the pill's Cancel button.
+- Audio is stored as WAV; FLAC is planned.
+- Shortcuts can only be changed in `config.toml`. There's no shortcut editor yet.
+- Meetings have no audio playback.
+- The theme follows your macOS appearance at launch, but doesn't switch live if you change the appearance while Zwisper is running.
+
+Items still to check on real hardware are marked `VERIFY ON MAC` in the code and listed in [HANDOFF.md](docs/HANDOFF.md).
 
 ## Credits
 
-The model credits are shown in Settings → About and listed in `manifest.rs`. Parakeet is CC-BY-4.0 © NVIDIA.
+- **Models:** credits are shown in Settings → About and listed in [`manifest.rs`](crates/adapters/models-http/src/manifest.rs). Parakeet is CC-BY-4.0 © NVIDIA.
+- **UI:** [GPUI](https://github.com/zed-industries/zed) by Zed Industries; [GPUI Kit](https://github.com/longbridge/gpui-kit) by Longbridge (Apache-2.0); the [Catppuccin](https://github.com/catppuccin/catppuccin) palette (MIT).
+
+Zwisper is MIT-licensed.
