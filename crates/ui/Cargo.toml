@@ -5,6 +5,11 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+# See crates/app/Cargo.toml: dev builds compile Metal shaders at runtime.
+default = ["runtime-shaders"]
+runtime-shaders = ["gpui/runtime_shaders"]
+
 [dependencies]
 zwisper-core.workspace = true
 gpui = "0.2.2"

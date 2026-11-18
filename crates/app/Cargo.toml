@@ -10,9 +10,16 @@ default-run = "zwisper"
 name = "zwisper"
 path = "src/main.rs"
 
+[features]
+# Compile GPUI's Metal shaders at launch instead of build time, so dev builds
+# don't need full Xcode (only Command Line Tools). Release builds
+# (bundle-macos.sh, CI) pass --no-default-features to precompile them.
+default = ["runtime-shaders"]
+runtime-shaders = ["gpui/runtime_shaders", "zwisper-ui/runtime-shaders"]
+
 [dependencies]
 zwisper-core.workspace = true
-zwisper-ui = { path = "../ui" }
+zwisper-ui = { path = "../ui", default-features = false }
 zwisper-fakes.workspace = true
 zwisper-store-fs = { path = "../adapters/store-fs" }
 zwisper-templates = { path = "../adapters/templates" }

@@ -31,7 +31,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Build
-        run: cargo build --release -p zwisper
+        run: cargo build --release -p zwisper --no-default-features
       - name: Unit tests
         run: cargo test -p zwisper-core -p zwisper-audio-macos -p zwisper-platform-macos -p zwisper-sherpa -p zwisper-llama
       - name: Bundle (unsigned)
@@ -39,4 +39,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Zwisper-macOS-unsigned
-          path: target/release/bundle/Zwisper.app
+          path: |
+            target/release/bundle/Zwisper.app
+            target/release/bundle/Zwisper.dmg

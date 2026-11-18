@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
-# Build Zwisper.app from a release build.
+# Build Zwisper.app and Zwisper.dmg from a release build, then open the DMG's
+# drag-to-Applications window.
 #   ./scripts/bundle-macos.sh                 unsigned (local testing; ad-hoc signed)
 #   SIGN_ID="Developer ID Application: …" ./scripts/bundle-macos.sh   signed + hardened runtime
+#   NO_OPEN=1 ./scripts/bundle-macos.sh       build only, don't mount the DMG (also skipped when $CI is set)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-cargo build --release -p zwisper
+# Precompile GPUI's Metal shaders when full Xcode is present; otherwise fall
+# back to compiling them at launch (Command Line Tools have no `metal`).
+if xcrun -f metal >/dev/null 2>&1; then
+  cargo build --release -p zwisper --no-default-features
+else
+  echo "warning: Xcode's metal compiler not found; shaders will compile at launch" >&2
+  cargo build --release -p zwisper
+fi
 APP=target/release/bundle/Zwisper.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks" "$APP/Contents/Resources"
@@ -31,3 +40,24 @@ else
   codesign --force --deep --sign - "$APP"
 fi
 echo "Built $APP"
+
+# Disk image: the app next to an /Applications shortcut, so opening it shows the
+# usual "drag to install" window.
+DMG=target/release/bundle/Zwisper.dmg
+VOL=Zwisper
+STAGE=$(mktemp -d)
+trap 'rm -rf "$STAGE"' EXIT
+cp -R "$APP" "$STAGE/"
+ln -s /Applications "$STAGE/Applications"
+# Eject a previous build's image so the new one doesn't mount as "Zwisper 1".
+if [ -d "/Volumes/$VOL" ]; then hdiutil detach "/Volumes/$VOL" -quiet || hdiutil detach "/Volumes/$VOL" -force -quiet || true; fi
+rm -f "$DMG"
+hdiutil create -volname "$VOL" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov -quiet "$DMG"
+if [ -n "${SIGN_ID:-}" ]; then
+  codesign --force --timestamp --sign "$SIGN_ID" "$DMG"
+fi
+echo "Built $DMG"
+
+if [ -z "${NO_OPEN:-}" ] && [ -z "${CI:-}" ]; then
+  open "$DMG"
+fi
