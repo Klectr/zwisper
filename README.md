@@ -192,20 +192,9 @@ Zwisper is an early MVP in active development.
 
 Items still to check on real hardware are marked `VERIFY ON MAC` in the code and listed in [HANDOFF.md](docs/HANDOFF.md).
 
-## Part of the Klectr Z-suite
+## Made by Klectr
 
-Zwisper is built and maintained by [Klectr](https://klectr.dev/), an independent software studio. It's one of the Z apps: small tools that each do one job well.
-
-| App | What it does |
-| --- | --- |
-| **Zwisper** | Dictation and meeting notes, local on your Mac *(you are here)* |
-| [Zotebook](https://zotebook.klectr.dev/) | A plain editor for folders of Markdown files |
-| [Zlab](https://zlab.klectr.dev/) | Think on an infinite canvas |
-| [Zimer](https://zimer.klectr.dev/) | A time tracker that turns your hours into an invoice |
-| [Zlorb](https://zlorb.klectr.dev/) | Git push is the deploy |
-| [Zandbox](https://zandbox.klectr.dev/) | A component lab for Bun + HTMX projects |
-
-See everything Klectr makes at [klectr.dev](https://klectr.dev/).
+Zwisper is a [Klectr](https://klectr.dev/) app, part of the Z-suite we build and maintain. Find the rest at [klectr.dev](https://klectr.dev/).
 
 ## Credits
 
