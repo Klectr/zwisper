@@ -2,7 +2,7 @@
 
 # Zwisper
 
-**Calm, local-first dictation and meeting notes for macOS.**
+**Calm, local-only dictation and meeting notes for macOS.**
 Press a key, speak, and your words appear wherever you're typing. Record a meeting and get clean notes. Nothing leaves your Mac.
 
 <picture>
@@ -30,9 +30,9 @@ Press a key, speak, and your words appear wherever you're typing. Record a meeti
 - Your microphone and the call's audio are recorded as separate tracks, so your own voice is always "You". The other voices are separated into speakers you can rename.
 - When the meeting ends, one click writes notes from a fixed set of templates: **Summary**, **Action items**, **To-do list**, **1:1** and **Follow-up email**. Your own notes are treated as facts.
 
-### Everything stays on your Mac
+### Local only, for good
 
-Every model runs locally. Models download once, are checked against SHA-256 hashes, and audio is never uploaded. There's no account, no cloud and no API keys.
+Every model runs on your Mac. Models download once and are checked against SHA-256 hashes. That download is the only time Zwisper uses the network, and audio, transcripts and notes are never uploaded. There's no account, no cloud and no API keys. There will never be a cloud version.
 
 ## Screenshots
 
@@ -40,7 +40,7 @@ Every model runs locally. Models download once, are checked against SHA-256 hash
 |:---:|:---:|:---:|
 | <img alt="Library of past meetings" src="docs/screenshots/library.png" width="260"> | <picture><source media="(prefers-color-scheme: light)" srcset="docs/screenshots/settings-light.png"><img alt="Settings" src="docs/screenshots/settings-dark.png" width="240"></picture> | <img alt="Onboarding" src="docs/screenshots/onboarding.png" width="260"> |
 
-The theme is [Catppuccin](https://catppuccin.com): Mocha in dark mode, Latte in light mode, following your macOS appearance.
+Zwisper has two themes, both [Catppuccin](https://catppuccin.com): **Mocha** (dark) and **Latte** (light). There are no other themes and no theme picker. Zwisper uses Latte if macOS is in light mode when it starts, and Mocha otherwise.
 
 ## Models
 
@@ -86,7 +86,7 @@ Demo mode runs the full UI with scripted engines, fake audio and sample meetings
 cargo run -p zwisper -- --demo --open meeting
 ```
 
-`--open` also accepts `library`, `settings`, `onboarding`, `live` and `pill`. Set `ZWISPER_THEME=dark` or `ZWISPER_THEME=light` to force a theme.
+`--open` also accepts `library`, `settings`, `onboarding`, `live` and `pill`. Set `ZWISPER_THEME=dark` (Mocha) or `ZWISPER_THEME=light` (Latte) to force one.
 
 ### Tests
 
@@ -121,6 +121,53 @@ Zwisper uses ports and adapters:
 
 A test enforces this dependency rule.
 
+```mermaid
+flowchart LR
+    subgraph input["You"]
+        keys["Global hotkeys<br/>⌥Space · Esc"]
+        ui["UI · zwisper-ui<br/>pill · meeting · library · settings"]
+    end
+
+    subgraph core["zwisper-core (no OS, engine or UI deps)"]
+        ctl["Controller<br/>command loop"]
+        svc["Services<br/>dictation · meeting · pipeline · notes"]
+        ports{{"Ports (traits)<br/>AudioSource · Transcriber · Diarizer<br/>NoteWriter · TextInjector · AudioDucker<br/>SessionRepository · ModelStore · …"}}
+        bus[("Event bus")]
+    end
+
+    subgraph adapters["Adapters (one per job)"]
+        audio["audio-macos<br/>mic · system-audio tap · muffle"]
+        platform["platform-macos<br/>hotkeys · paste · permissions"]
+        sherpa["sherpa<br/>Parakeet · Silero · diarizer"]
+        llama["llama<br/>Qwen notes"]
+        store["store-fs · templates"]
+        models["models-http<br/>downloads + SHA-256"]
+    end
+
+    app(["app · composition root<br/>picks the adapters"])
+    hf[("Hugging Face · GitHub<br/>one-time model download")]
+
+    keys -- Command --> ctl
+    ui -- Command --> ctl
+    ctl --> svc
+    svc --> ports
+    svc -- Event --> bus
+    bus -- Event --> ui
+
+    ports -.-> audio
+    ports -.-> platform
+    ports -.-> sherpa
+    ports -.-> llama
+    ports -.-> store
+    ports -.-> models
+
+    app ==> core
+    app ==> adapters
+    models -- "the only network use" --> hf
+```
+
+Solid arrows are runtime data flow, dotted arrows are "implemented by", and thick arrows are where the app wires things together.
+
 ```
 crates/
 ├── core/               domain, ports, services, command/event bus, decorators, contract tests
@@ -150,7 +197,6 @@ Zwisper is an early MVP in active development.
 - Audio is stored as WAV; FLAC is planned.
 - Shortcuts can only be changed in `config.toml`. There's no shortcut editor yet.
 - Meetings have no audio playback.
-- The theme follows your macOS appearance at launch, but doesn't switch live if you change the appearance while Zwisper is running.
 
 Items still to check on real hardware are marked `VERIFY ON MAC` in the code and listed in [HANDOFF.md](docs/HANDOFF.md).
 

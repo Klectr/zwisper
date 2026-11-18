@@ -1,6 +1,6 @@
 # Zwisper — Architecture (v4)
 
-> A minimal, local-first **English** dictation and meeting-notes app.
+> A minimal, local-only **English** dictation and meeting-notes app.
 > Rust + GPUI. **macOS ships first** (Apple Silicon, macOS 14.4+); Windows and Linux follow on the same codebase.
 > Revision 4: macOS-first plan (§11). Revision 3: English-only; models chosen for the most mature, most portable runtimes; two hardware tiers (Standard / Lite).
 

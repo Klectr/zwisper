@@ -4,7 +4,7 @@ The project moved from a Linux cloud session to local development on the Mac. Re
 
 ## TL;DR
 
-- **What it is:** a minimal, local-first dictation and meeting-notes app for macOS 14.4+ on Apple Silicon. It's written in Rust with GPUI and uses a ports-and-adapters design with exactly one curated model per job.
+- **What it is:** a minimal, local-only dictation and meeting-notes app for macOS 14.4+ on Apple Silicon. It's written in Rust with GPUI and uses a ports-and-adapters design with exactly one curated model per job.
 - **Done and tested on Linux:**
   - the core: domain types, interfaces (ports), services and command/event bus
   - storage, the note templates and the model downloader
