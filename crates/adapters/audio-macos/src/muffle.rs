@@ -6,9 +6,10 @@
 //!    syllables and adds a warm thump; its harmonics are filtered away.
 //! 2. **Steep low-pass** (36 dB/octave, gliding 18 kHz → 300 Hz): removes the
 //!    consonants and most vowel formants that carry intelligibility.
-//! 3. **Room smear**: a short, dark reverb (Freeverb-style combs + allpasses)
-//!    blurs syllables together, flattening the rhythm the brain decodes
-//!    speech from even without high frequencies.
+//! 3. **Smear**: a very short, dense diffuser (tiny combs + allpasses, ~150 ms
+//!    decay) thickens each syllable so they run together, flattening the
+//!    rhythm the brain decodes speech from — without an audible echo or a
+//!    tail hanging on after the sound stops.
 //!
 //! Pure DSP, no OS calls, no allocation in `process` (buffers are sized in
 //! `new`) — safe on a real-time audio thread. `amount` glides so switching
@@ -75,7 +76,9 @@ struct Comb {
 }
 
 impl Comb {
-    const FEEDBACK: f32 = 0.84;
+    /// Low feedback + short delays: gone ~200 ms after the sound stops, so it
+    /// thickens instead of echoing.
+    const FEEDBACK: f32 = 0.62;
     const DAMP: f32 = 0.4;
 
     fn new(len: usize) -> Self {
@@ -118,22 +121,24 @@ impl Allpass {
 /// A small room for one channel.
 struct Room {
     combs: [Comb; 4],
-    allpasses: [Allpass; 2],
+    allpasses: [Allpass; 3],
 }
 
 impl Room {
-    /// Freeverb's tunings (in samples at 44.1 kHz), scaled to the rate;
-    /// `spread` offsets the right channel so the stereo image stays wide.
+    /// Freeverb's tunings (samples at 44.1 kHz) shrunk to ~9–13 ms so the
+    /// reflections fuse instead of being heard as echoes, then scaled to the
+    /// rate. `spread` offsets the right channel so the stereo image stays wide.
     fn new(sample_rate: f32, spread: usize) -> Self {
-        let n = |samples_44k: usize| ((samples_44k + spread) as f32 * sample_rate / 44_100.0) as usize;
+        const SHRINK: f32 = 0.35;
+        let n = |samples_44k: usize| (((samples_44k + spread) as f32 * SHRINK) * sample_rate / 44_100.0) as usize;
         Room {
             combs: [Comb::new(n(1116)), Comb::new(n(1277)), Comb::new(n(1422)), Comb::new(n(1617))],
-            allpasses: [Allpass::new(n(556)), Allpass::new(n(341))],
+            allpasses: [Allpass::new(n(556)), Allpass::new(n(341)), Allpass::new(n(225))],
         }
     }
 
     /// Input gain keeping the wet level roughly equal to the dry level.
-    const INPUT_GAIN: f32 = 0.3;
+    const INPUT_GAIN: f32 = 0.4;
 
     #[inline]
     fn tick(&mut self, x: f32) -> f32 {
@@ -306,7 +311,21 @@ mod tests {
             .collect();
         let before = syllable_depth(&input);
         let after = syllable_depth(&settled(&input, 1.0));
-        assert!(after < 0.7 * before, "rhythm depth {before:.2} -> {after:.2}");
+        eprintln!("rhythm depth {before:.2} -> {after:.2}");
+        // Short on purpose (no echo), so a modest but real flattening.
+        assert!(after < 0.85 * before, "rhythm depth {before:.2} -> {after:.2}");
+    }
+
+    #[test]
+    fn nothing_lingers_after_the_sound_stops() {
+        // 300 ms of "voice", then silence.
+        let mut input = sine(150.0, 0.3, (SR * 0.3) as usize);
+        input.extend(vec![0.0; SR as usize]);
+        let out = settled(&input, 1.0);
+        let during = rms(&out[(SR * 0.1) as usize..(SR * 0.3) as usize]);
+        let at = |ms: f32| rms(&out[(SR * (0.3 + ms / 1000.0)) as usize..(SR * (0.3 + ms / 1000.0 + 0.05)) as usize]) / during;
+        eprintln!("tail: +100ms {:.4}  +200ms {:.4}  +300ms {:.4}", at(100.0), at(200.0), at(300.0));
+        assert!(at(200.0) < 0.03, "still audible 200 ms after: {}", at(200.0));
     }
 
     #[test]
