@@ -48,7 +48,7 @@ crates/
     └── fakes/         test doubles for every port
 ```
 
-The full design is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The full design is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Current status and next steps: [docs/HANDOFF.md](docs/HANDOFF.md).
 
 ## Build and run (macOS 14.4+, Apple Silicon)
 
