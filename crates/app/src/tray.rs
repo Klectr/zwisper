@@ -39,8 +39,7 @@ pub fn install(cx: &mut App) {
     ]);
     let tray = TrayIconBuilder::new()
         .with_menu(Box::new(menu))
-        .with_icon(icon())
-        .with_icon_as_template(true)
+        .with_icon_templated(icon())
         .with_tooltip("Zwisper")
         .build();
     match tray {

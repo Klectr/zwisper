@@ -1,3 +1,9 @@
 [alias]
 # Build the release app and DMG, then open the drag-to-Applications window.
 app = "run --quiet --package xtask --"
+
+# The only future-incompat warnings come from gpui 0.2.2's own dependencies
+# (block 0.1.6 via cocoa, proc-macro-error2 via stacksafe), which we can't fix
+# here. Hide the end-of-build note; re-enable it after bumping gpui to check.
+[future-incompat-report]
+frequency = "never"
