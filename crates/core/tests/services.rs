@@ -344,7 +344,7 @@ fn long_meetings_are_condensed_in_parts() {
     wait_for(&rx, 5, |e| matches!(e, Event::MeetingStarted(_)));
     core.send(Command::EndMeeting);
     let ev = wait_for(&rx, 10, |e| matches!(e, Event::MeetingState { state: SessionState::Done, .. }));
-    assert!(ev.iter().any(|e| matches!(e, Event::Pipeline { step, .. } if step.starts_with("Reading part 1 of"))));
+    assert!(ev.iter().any(|e| matches!(e, Event::NotesStage { stage, .. } if stage.starts_with("Reading part 1 of"))));
     let prompts = world.engines.notes_prompts.lock();
     assert!(prompts.len() >= 3, "expected chunk prompts + final, got {}", prompts.len());
     assert!(prompts.last().unwrap().user.contains("Part 1 of"));
@@ -370,4 +370,46 @@ fn pack_download_reports_progress() {
     assert!(matches!(core.pack_status(Pack::Speakers), PackStatus::NotDownloaded { .. }));
     core.send(Command::DownloadPack(Pack::Speakers));
     wait_for(&rx, 5, |e| matches!(e, Event::Pack { pack: Pack::Speakers, status: PackStatus::Ready { .. } }));
+}
+
+#[test]
+fn generating_notes_reports_stages_before_text() {
+    let world = remote_meeting_world();
+    let (core, rx) = start(&world);
+    core.send(Command::StartMeeting { title: None });
+    wait_for(&rx, 5, |e| matches!(e, Event::MeetingStarted(_)));
+    core.send(Command::EndMeeting);
+    wait_for(&rx, 10, |e| matches!(e, Event::MeetingState { state: SessionState::Done, .. }));
+    let id = core.library()[0].id;
+
+    core.send(Command::SelectTemplate { id, template: Template::ActionItems });
+    let ev = wait_for(&rx, 5, |e| matches!(e, Event::NotesDone { template: Template::ActionItems, .. }));
+    let pos = |f: &dyn Fn(&Event) -> bool| ev.iter().position(|e| f(e)).expect("event missing");
+    let started = pos(&|e| matches!(e, Event::NotesStarted { template: Template::ActionItems, .. }));
+    let loading = pos(&|e| matches!(e, Event::NotesStage { stage, .. } if stage == "Loading the notes model"));
+    let reading = pos(&|e| matches!(e, Event::NotesStage { stage, .. } if stage == "Reading the transcript"));
+    let first_text = pos(&|e| matches!(e, Event::NotesDelta { template: Template::ActionItems, .. }));
+    assert!(started < loading && loading < reading && reading < first_text);
+}
+
+#[test]
+fn a_retried_note_keeps_the_first_draft_on_screen() {
+    let mut world = remote_meeting_world();
+    // Blank output always fails validation, so the note is retried once.
+    world.engines = std::sync::Arc::new(FakeEngines { notes_reply: Some(" ".into()), ..Default::default() });
+    let (core, rx) = start(&world);
+    core.send(Command::StartMeeting { title: None });
+    wait_for(&rx, 5, |e| matches!(e, Event::MeetingStarted(_)));
+    core.send(Command::EndMeeting);
+    wait_for(&rx, 10, |e| matches!(e, Event::MeetingState { state: SessionState::Done, .. }));
+    let id = core.library()[0].id;
+
+    core.send(Command::SelectTemplate { id, template: Template::ActionItems });
+    let ev = wait_for(&rx, 5, |e| matches!(e, Event::NotesDone { template: Template::ActionItems, .. }));
+    let count = |f: &dyn Fn(&Event) -> bool| ev.iter().filter(|e| f(e)).count();
+    // One start (no reset that would blank the draft), the first draft's text only,
+    // and a stage saying what the second pass is doing.
+    assert_eq!(count(&|e| matches!(e, Event::NotesStarted { template: Template::ActionItems, .. })), 1);
+    assert_eq!(count(&|e| matches!(e, Event::NotesDelta { template: Template::ActionItems, .. })), 1);
+    assert_eq!(count(&|e| matches!(e, Event::NotesStage { stage, .. } if stage == "Tidying up the notes")), 1);
 }

@@ -51,6 +51,12 @@ pub fn generate_into(ctx: &SharedCtx, session: &mut Session, template: Template,
     let mut input = note_input(session);
 
     ctx.events.publish(Event::NotesStarted { id, template });
+    let stage = |s: String| ctx.events.publish(Event::NotesStage { id, template, stage: s });
+
+    // Loading a multi-GB model takes seconds; say so rather than look idle.
+    stage("Loading the notes model".into());
+    w.preload()?;
+    cancel.check()?;
 
     // Very long meetings: condense in parts first (map), then write the note (reduce).
     let budget = w.input_budget_tokens();
@@ -64,7 +70,7 @@ pub fn generate_into(ctx: &SharedCtx, session: &mut Session, template: Template,
         let mut condensed = String::new();
         for (i, part) in parts.into_iter().enumerate() {
             cancel.check()?;
-            ctx.events.publish(Event::Pipeline { id, step: format!("Reading part {} of {}", i + 1, of), done: false });
+            stage(format!("Reading part {} of {}", i + 1, of));
             let part_input = NoteInput { transcript: part, ..input.clone() };
             let prompt = templates.chunk_prompt(&part_input, i + 1, of);
             let out = w.generate(&prompt, &mut |_| {}, cancel)?;
@@ -74,11 +80,16 @@ pub fn generate_into(ctx: &SharedCtx, session: &mut Session, template: Template,
     }
 
     let mut prompt = templates.prompt(template, &input);
+    stage("Reading the transcript".into());
     let mut attempt = 0;
     let markdown = loop {
         attempt += 1;
+        // Only the first draft streams. A retry runs quietly so the first
+        // draft stays on screen; the final note replaces it on `NotesDone`.
         let mut on_delta = |d: &str| {
-            ctx.events.publish(Event::NotesDelta { id, template, delta: d.to_string() });
+            if attempt == 1 {
+                ctx.events.publish(Event::NotesDelta { id, template, delta: d.to_string() });
+            }
         };
         let out = w.generate(&prompt, &mut on_delta, cancel)?;
         let out = strip_think(&out);
@@ -87,7 +98,7 @@ pub fn generate_into(ctx: &SharedCtx, session: &mut Session, template: Template,
             Err(reason) if attempt < 2 => {
                 tracing::info!(%reason, "note failed validation; retrying");
                 prompt.temperature = 0.2;
-                ctx.events.publish(Event::NotesStarted { id, template });
+                stage("Tidying up the notes".into());
             }
             Err(reason) => {
                 tracing::warn!(%reason, "note failed validation twice; keeping output");

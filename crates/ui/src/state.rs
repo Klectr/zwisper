@@ -29,6 +29,7 @@ pub enum UiEvent {
     Session(Box<Session>),
     Live(SessionId, TranscriptSegment),
     NotesStarted(SessionId, Template),
+    NotesStage(SessionId, Template, String),
     NotesDelta(SessionId, Template, String),
     NotesDone(SessionId, Template),
     Deleted(SessionId),
@@ -233,6 +234,7 @@ impl AppState {
             }
             Event::LibraryChanged => self.library_version += 1,
             Event::NotesStarted { id, template } => cx.emit(UiEvent::NotesStarted(id, template)),
+            Event::NotesStage { id, template, stage } => cx.emit(UiEvent::NotesStage(id, template, stage)),
             Event::NotesDelta { id, template, delta } => cx.emit(UiEvent::NotesDelta(id, template, delta)),
             Event::NotesDone { id, template } => cx.emit(UiEvent::NotesDone(id, template)),
             Event::Pack { pack, status } => {

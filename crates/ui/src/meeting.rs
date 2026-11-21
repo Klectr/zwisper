@@ -32,6 +32,8 @@ pub struct MeetingView {
     note_editor: Entity<TextEditor>,
     editing_note: bool,
     streaming: Option<(Template, String)>,
+    /// What notes generation is doing before text arrives ("Loading the notes model").
+    notes_stage: Option<String>,
     show_transcript: bool,
     menu: Option<Menu>,
     rename: Option<(SpeakerId, Entity<TextEditor>)>,
@@ -131,6 +133,7 @@ impl MeetingView {
             note_editor,
             editing_note: false,
             streaming: None,
+            notes_stage: None,
             show_transcript: true,
             menu: None,
             rename: None,
@@ -194,16 +197,31 @@ impl MeetingView {
                     self.scroll.scroll_to_bottom();
                 }
             }
-            UiEvent::NotesStarted(id, t) if *id == self.id => self.streaming = Some((*t, String::new())),
+            UiEvent::NotesStarted(id, t) if *id == self.id => {
+                self.streaming = Some((*t, String::new()));
+                self.notes_stage = None;
+            }
+            UiEvent::NotesStage(id, t, stage) if *id == self.id => {
+                if self.streaming.as_ref().is_some_and(|(st, _)| st == t) {
+                    self.notes_stage = Some(stage.clone());
+                }
+            }
             UiEvent::NotesDelta(id, t, d) if *id == self.id => {
                 if let Some((st, text)) = self.streaming.as_mut() {
                     if st == t {
                         text.push_str(d);
+                        self.notes_stage = None;
                     }
                 }
             }
-            UiEvent::NotesDone(id, _) if *id == self.id => {
+            UiEvent::NotesDone(id, t) if *id == self.id => {
+                // A cancelled run for another template can finish after the
+                // next one started; only its own Done ends the stream.
+                if self.streaming.as_ref().is_some_and(|(st, _)| st != t) {
+                    return;
+                }
                 self.streaming = None;
+                self.notes_stage = None;
                 if let Some(s) = self.state.read(cx).core.session(self.id) {
                     self.session = Some(s);
                 }
@@ -219,6 +237,44 @@ impl MeetingView {
             .map(|(t, _)| *t)
             .or_else(|| self.session.as_ref().and_then(|s| s.active_template))
             .unwrap_or(Template::DEFAULT)
+    }
+
+    fn is_writing(&self, t: Template) -> bool {
+        self.streaming.as_ref().is_some_and(|(st, _)| *st == t)
+    }
+
+    fn stop_notes(&mut self, cx: &mut Context<Self>) {
+        self.send(Command::CancelNotes, cx);
+    }
+
+    /// "Loading the notes model…" plus a Stop button, shown while notes are
+    /// being written. Pulses so it never looks idle.
+    fn notes_status(&self, cx: &mut Context<Self>) -> Option<gpui::AnyElement> {
+        let (tpl, _) = self.streaming.as_ref()?;
+        let t = Theme::get(cx);
+        let label = self
+            .notes_stage
+            .clone()
+            .unwrap_or_else(|| format!("Writing {}", tpl.label().to_lowercase()));
+        Some(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(12.))
+                .child(
+                    div()
+                        .text_size(px(14.))
+                        .text_color(t.text_2)
+                        .child(format!("{label}…"))
+                        .with_animation(
+                            SharedString::from(format!("notes-stage-{label}")),
+                            Animation::new(Duration::from_millis(1100)).repeat(),
+                            |el, d| el.opacity(0.4 + 0.6 * (1.0 - (2.0 * d - 1.0).abs())),
+                        ),
+                )
+                .child(capsule("stop-notes", "Stop", cx, cx.listener(|this, _, _, cx| this.stop_notes(cx))))
+                .into_any_element(),
+        )
     }
 
     fn current_note(&self) -> Option<String> {
@@ -436,10 +492,15 @@ impl MeetingView {
                         .iter()
                         .map(|tp| {
                             let tp = *tp;
-                            let mark = if tp == current { "✓  " } else if have.contains(&tp) { "•  " } else { "    " };
+                            let writing = self.streaming.as_ref().is_some_and(|(st, _)| *st == tp);
+                            let mark = if writing { "…  " } else if tp == current { "✓  " } else if have.contains(&tp) { "•  " } else { "    " };
                             item(SharedString::from(format!("tpl-{tp:?}")), format!("{mark}{}", tp.label()), false)
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.menu = None;
+                                    if this.is_writing(tp) {
+                                        cx.notify();
+                                        return;
+                                    }
                                     this.send(Command::SelectTemplate { id: this.id, template: tp }, cx);
                                     cx.notify();
                                 }))
@@ -458,7 +519,9 @@ impl MeetingView {
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.menu = None;
                                 let t = this.active_template();
-                                this.send(Command::GenerateNotes { id: this.id, template: t, force: true }, cx);
+                                if !this.is_writing(t) {
+                                    this.send(Command::GenerateNotes { id: this.id, template: t, force: true }, cx);
+                                }
                                 cx.notify();
                             }))
                             .into_any_element(),
@@ -557,11 +620,17 @@ impl MeetingView {
     fn notes_pane(&mut self, recording: bool, cx: &mut Context<Self>) -> impl IntoElement {
         let t = Theme::get(cx);
         let processing = self.state.read(cx).pipeline.get(&self.id).cloned();
-        let note_md = if let Some((_, text)) = &self.streaming {
-            Some(text.clone())
-        } else {
-            self.current_note()
+        // Until the first words arrive, keep showing the old note for this
+        // template (Regenerate), dimmed, under the status line.
+        let (note_md, dim) = match &self.streaming {
+            Some((tpl, text)) if text.trim().is_empty() => {
+                (self.session.as_ref().and_then(|s| s.notes.get(tpl)).map(|n| n.markdown.clone()), true)
+            }
+            // A stage after text has streamed means a quiet retry: dim the draft.
+            Some((_, text)) => (Some(text.clone()), self.notes_stage.is_some()),
+            None => (self.current_note(), false),
         };
+        let status = if recording || self.editing_note { None } else { self.notes_status(cx) };
 
         let generated = if recording {
             None
@@ -590,6 +659,7 @@ impl MeetingView {
             Some(
                 div()
                     .id("note")
+                    .when(dim, |d| d.opacity(0.45))
                     .on_click(cx.listener(|this, e: &gpui::ClickEvent, window, cx| {
                         if e.click_count() == 2 && this.streaming.is_none() {
                             this.start_edit_note(window, cx);
@@ -602,7 +672,7 @@ impl MeetingView {
                     }))
                     .into_any_element(),
             )
-        } else if let Some(step) = processing.clone() {
+        } else if let Some(step) = processing.clone().filter(|_| status.is_none()) {
             Some(
                 div()
                     .text_size(px(14.))
@@ -619,6 +689,11 @@ impl MeetingView {
             None
         };
 
+        let generated = match (status, generated) {
+            (Some(s), Some(g)) => Some(div().flex().flex_col().gap(px(16.)).child(s).child(g).into_any_element()),
+            (Some(s), None) => Some(s),
+            (None, g) => g,
+        };
         let has_note = generated.is_some();
         div()
             .id("notes-scroll")

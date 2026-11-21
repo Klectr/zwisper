@@ -288,11 +288,14 @@ pub struct CannedNoteWriter {
     pub prompts: Arc<Mutex<Vec<Prompt>>>,
     pub budget: usize,
     pub id: EngineId,
+    /// Demo pacing: pretend loading and reading take this long each, and
+    /// stream words a little apart. `None` (tests) is instant.
+    pub pace: Option<std::time::Duration>,
 }
 
 impl CannedNoteWriter {
     pub fn new(reply: &str) -> Self {
-        CannedNoteWriter { reply: reply.into(), prompts: Arc::default(), budget: 16_000, id: "canned-notes" }
+        CannedNoteWriter { reply: reply.into(), prompts: Arc::default(), budget: 16_000, id: "canned-notes", pace: None }
     }
 }
 
@@ -312,11 +315,24 @@ impl NoteWriter for CannedNoteWriter {
     fn count_tokens(&mut self, text: &str) -> usize {
         text.split_whitespace().count()
     }
+    fn preload(&mut self) -> Result<()> {
+        if let Some(p) = self.pace {
+            std::thread::sleep(p);
+        }
+        Ok(())
+    }
     fn generate(&mut self, prompt: &Prompt, on_delta: &mut dyn FnMut(&str), cancel: &CancelToken) -> Result<String> {
         cancel.check()?;
         self.prompts.lock().push(prompt.clone());
+        if let Some(p) = self.pace {
+            std::thread::sleep(p);
+        }
         let mut out = String::new();
         for (i, piece) in self.reply.split_inclusive(' ').enumerate() {
+            if let Some(p) = self.pace {
+                std::thread::sleep(p / 40);
+                cancel.check()?;
+            }
             if i % 8 == 0 {
                 cancel.check()?;
             }
@@ -528,6 +544,8 @@ pub struct FakeEngines {
     pub notes_reply: Option<String>,
     pub notes_budget: Option<usize>,
     pub notes_prompts: Arc<Mutex<Vec<Prompt>>>,
+    /// See [`CannedNoteWriter::pace`].
+    pub notes_pace: Option<std::time::Duration>,
 }
 
 impl EngineFactory for FakeEngines {
@@ -547,6 +565,7 @@ impl EngineFactory for FakeEngines {
             None => CannedNoteWriter::default(),
         };
         w.prompts = self.notes_prompts.clone();
+        w.pace = self.notes_pace;
         if let Some(b) = self.notes_budget {
             w.budget = b;
         }

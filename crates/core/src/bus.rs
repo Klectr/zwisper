@@ -69,6 +69,9 @@ pub enum Event {
     LibraryChanged,
 
     NotesStarted { id: SessionId, template: Template },
+    /// What notes generation is doing before (or between) text arrives, e.g.
+    /// "Loading the notes model". Cleared by the first `NotesDelta`.
+    NotesStage { id: SessionId, template: Template, stage: String },
     NotesDelta { id: SessionId, template: Template, delta: String },
     NotesDone { id: SessionId, template: Template },
 

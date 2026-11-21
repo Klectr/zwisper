@@ -107,6 +107,10 @@ pub trait NoteWriter: Send {
         on_delta: &mut dyn FnMut(&str),
         cancel: &CancelToken,
     ) -> Result<String>;
+    /// Load the model now, so the caller can report that step separately.
+    fn preload(&mut self) -> Result<()> {
+        Ok(())
+    }
     fn unload(&mut self) {}
     fn maintain(&mut self) {}
 }

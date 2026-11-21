@@ -31,7 +31,8 @@ pub fn ports(root: &std::path::Path) -> Ports {
         aligner: Arc::new(zwisper_core::align::MaxOverlapAligner),
         echo: Arc::new(zwisper_core::echo::TextSimilarityEcho::default()),
         clock: Arc::new(SystemClockFake),
-        engines: Arc::new(FakeEngines::default()),
+        // Paced like the real model, so the notes status is visible in the demo.
+        engines: Arc::new(FakeEngines { notes_pace: Some(std::time::Duration::from_millis(1500)), ..Default::default() }),
         system_memory_bytes: 16 << 30,
     }
 }

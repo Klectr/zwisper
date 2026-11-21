@@ -125,6 +125,9 @@ impl<T: NoteWriter> NoteWriter for Lazy<T> {
     ) -> Result<String> {
         self.get()?.generate(prompt, on_delta, cancel)
     }
+    fn preload(&mut self) -> Result<()> {
+        self.get()?.preload()
+    }
     fn unload(&mut self) {
         self.drop_value()
     }
