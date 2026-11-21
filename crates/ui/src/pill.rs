@@ -44,6 +44,7 @@ pub fn open(cx: &mut App) -> Option<WindowHandle<Pill>> {
             ..Default::default()
         },
         |window, cx| {
+            crate::state::follow_system_theme(window, cx);
             st.read(cx).platform.make_frameless(window);
             cx.new(|cx| {
                 cx.observe(&st, |_, _, cx| cx.notify()).detach();

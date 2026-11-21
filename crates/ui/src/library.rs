@@ -36,7 +36,8 @@ pub fn open(cx: &mut App) -> Option<AnyWindowHandle> {
             ..Default::default()
         },
         cx,
-        |_, cx| {
+        |window, cx| {
+            crate::state::follow_system_theme(window, cx);
             cx.new(|cx| {
                 let search = cx.new(|cx| TextEditor::new(cx, "Search", false));
                 cx.subscribe(&search, |_: &mut LibraryView, _, e: &EditorEvent, cx| {

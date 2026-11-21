@@ -58,7 +58,10 @@ pub fn open(id: SessionId, cx: &mut App) -> Option<AnyWindowHandle> {
             ..Default::default()
         },
         cx,
-        |window, cx| cx.new(|cx| MeetingView::new(id, st, window, cx)),
+        |window, cx| {
+            crate::state::follow_system_theme(window, cx);
+            cx.new(|cx| MeetingView::new(id, st, window, cx))
+        },
     )
     .ok()
     .map(|(handle, _)| handle)

@@ -3,7 +3,7 @@
 
 use crate::theme::Theme;
 use crate::{library, meeting, onboarding, pill, settings};
-use gpui::{AnyWindowHandle, App, AppContext, Context, Entity, EventEmitter, Global, WindowHandle};
+use gpui::{AnyWindowHandle, App, AppContext, Context, Entity, EventEmitter, Global, Window, WindowHandle};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -378,12 +378,45 @@ fn load_theme(dark: bool, cx: &mut App) -> Theme {
     Theme::from_kit(&Kit::global(cx).colors, dark)
 }
 
+/// `ZWISPER_THEME=dark|light` pins the theme; otherwise it follows macOS.
+fn pinned_theme() -> Option<bool> {
+    match std::env::var("ZWISPER_THEME").as_deref() {
+        Ok("dark") => Some(true),
+        Ok("light") => Some(false),
+        _ => None,
+    }
+}
+
+fn is_dark(appearance: gpui::WindowAppearance) -> bool {
+    !matches!(appearance, gpui::WindowAppearance::Light | gpui::WindowAppearance::VibrantLight)
+}
+
+/// Switch between Mocha and Latte if macOS changed appearance since we last
+/// looked. Cheap when nothing changed.
+fn sync_theme(appearance: gpui::WindowAppearance, cx: &mut App) {
+    if pinned_theme().is_some() {
+        return;
+    }
+    let dark = is_dark(appearance);
+    if Theme::get(cx).dark == dark {
+        return;
+    }
+    tracing::info!(dark, "system appearance changed; switching theme");
+    let theme = load_theme(dark, cx);
+    cx.set_global(theme);
+    cx.refresh_windows();
+}
+
+/// Call from every window's build closure: re-checks the theme now (macOS may
+/// have switched while no window was open) and whenever this window sees the
+/// system appearance change.
+pub(crate) fn follow_system_theme(window: &mut Window, cx: &mut App) {
+    sync_theme(window.appearance(), cx);
+    window.observe_window_appearance(|window, cx| sync_theme(window.appearance(), cx)).detach();
+}
+
 pub fn install(core: Core, platform: Arc<dyn UiPlatform>, cx: &mut App) -> Entity<AppState> {
-    let dark = match std::env::var("ZWISPER_THEME").as_deref() {
-        Ok("dark") => true,
-        Ok("light") => false,
-        _ => !matches!(cx.window_appearance(), gpui::WindowAppearance::Light | gpui::WindowAppearance::VibrantLight),
-    };
+    let dark = pinned_theme().unwrap_or_else(|| is_dark(cx.window_appearance()));
     gpui::init(cx);
     let theme = load_theme(dark, cx);
     cx.set_global(theme);

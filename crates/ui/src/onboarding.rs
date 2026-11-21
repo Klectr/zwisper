@@ -33,7 +33,8 @@ pub fn open(cx: &mut App) -> Option<AnyWindowHandle> {
             ..Default::default()
         },
         cx,
-        |_, cx| {
+        |window, cx| {
+            crate::state::follow_system_theme(window, cx);
             cx.new(|cx| {
                 cx.observe(&st, |_, _, cx| cx.notify()).detach();
                 cx.on_release(|_, cx| cx.defer(|cx| state(cx).update(cx, |s, _| s.window_closed("onboarding")))).detach();
